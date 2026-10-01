@@ -355,7 +355,9 @@ def list_inbound(status: str | None = None, user: User = Depends(current_user), 
         if m.workspace_id not in (None, user.workspace_id):
             continue
         if m.workspace_id is None and not get_settings().is_dev:
-            continue
+            suggested = [s.get(Conversation, cid) for cid in m.suggested_conversation_ids or []]
+            if not any(x is not None and x.workspace_id == user.workspace_id for x in suggested):
+                continue
         if status and m.status != status:
             continue
         d = serialize.inbound(m, full=True)
@@ -378,6 +380,11 @@ def assign_inbound(iid: int, body: AssignIn, user: User = Depends(current_user),
     c = s.get(Conversation, body.conversation_id)
     if m is None or c is None or c.workspace_id != user.workspace_id or m.workspace_id not in (None, user.workspace_id):
         raise HTTPException(404)
+    if m.workspace_id is None and not get_settings().is_dev:
+        # mail we couldn't place in any workspace: only reachable through a suggestion into this one
+        suggested = [s.get(Conversation, cid) for cid in m.suggested_conversation_ids or []]
+        if not any(x is not None and x.workspace_id == user.workspace_id for x in suggested):
+            raise HTTPException(404)
     if m.status != "unmatched":
         raise HTTPException(400, "message is not in the unmatched queue")
     audit.log(s, actor="requester", actor_detail=user.email, action="inbound_assigned", workspace_id=user.workspace_id, inbound=m.id, conversation=c.id)
