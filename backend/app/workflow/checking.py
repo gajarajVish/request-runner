@@ -256,6 +256,18 @@ def apply_check(s: Session, req: Request, chk: Check, output: CheckOutput | None
     add_comment(s, req, author="agent", kind="check_result", body=f"Checked {len(assigned)} file(s)/message(s): {met} of {total} item(s) met.", payload={"check_id": chk.id})
 
 
+def owners_without_submissions(s: Session, req: Request) -> list:
+    """Owners (not closed) with no evidence of their own assigned to this request."""
+    senders = set(
+        s.scalars(
+            select(EvidenceFile.provider_id)
+            .join(EvidenceAssignment, EvidenceAssignment.file_id == EvidenceFile.id)
+            .where(EvidenceAssignment.request_id == req.id)
+        ).all()
+    )
+    return [o.provider for o in req.owners if o.closed_at is None and o.provider_id not in senders]
+
+
 def owners_all_closed(req: Request) -> bool:
     return bool(req.owners) and all(o.closed_at is not None for o in req.owners)
 
@@ -272,8 +284,17 @@ def decide(s: Session, req: Request, *, substantive: bool) -> None:
     all_met = bool(verdicts) and all(v["verdict"] == "met" for v in verdicts.values())
     deps = dependencies(s, req)
     deps_ok = all(d.state in (states.COMPLETE, states.ACCEPTED) for d in deps)
+    silent = owners_without_submissions(s, req) if req.ownership_mode == "all" else []
+    if all_met and deps_ok and silent:
+        # "both must respond": each owner has to send their own part
+        who = ", ".join(p.name or p.email for p in silent)
+        add_flag(req, "waiting_on_owner", f"All items are met, but this is shared with 'both must respond' and nothing has come from {who} yet.")
+        if req.state == states.CHECKING:
+            states.transition(s, req, states.WAITING_PROVIDER, actor="agent", reason="waiting on a co-owner")
+        return
     if all_met and deps_ok:
         clear_flag(req, "waiting_on_dependency")
+        clear_flag(req, "waiting_on_owner")
         states.transition(s, req, states.COMPLETE, actor="agent", reason="every checklist item is met")
         hand_back(s, req, reason="complete")
         _after_close(s, req)

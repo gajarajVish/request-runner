@@ -472,3 +472,183 @@ async def dev_inject(file: UploadFile = File(...), request_id: int | None = Form
             raw = retarget(s, raw, req)
     iid, created = inbound.ingest_raw(raw, source="inject")
     return {"inbound_id": iid, "created": created}
+
+
+# --------------------------------------------------------------------------- imports (Part 2)
+
+
+def _batch(bid: int, user: User, s: Session):
+    from ..models import ImportBatch, ImportList
+
+    b = s.get(ImportBatch, bid)
+    lst = s.get(ImportList, b.import_list_id) if b else None
+    if b is None or lst is None or lst.workspace_id != user.workspace_id:
+        raise HTTPException(404, "not found")
+    return b
+
+
+@router.get("/imports")
+def list_imports(user: User = Depends(current_user), s: Session = Depends(db)):
+    from ..models import ImportBatch, ImportList
+    from ..workflow.imports import summary
+
+    lists = s.scalars(select(ImportList).where(ImportList.workspace_id == user.workspace_id).order_by(ImportList.id.desc())).all()
+    out = []
+    for lst in lists:
+        batches = s.scalars(select(ImportBatch).where(ImportBatch.import_list_id == lst.id).order_by(ImportBatch.id.desc())).all()
+        out.append(
+            {
+                "id": lst.id,
+                "name": lst.name,
+                "batches": [{"id": b.id, "filename": b.filename, "status": b.status, "created_at": serialize.iso(b.created_at), "applied_at": serialize.iso(b.applied_at), "summary": summary(b)} for b in batches],
+            }
+        )
+    return out
+
+
+@router.post("/imports")
+async def upload_import(file: UploadFile = File(...), list_name: str = Form(""), user: User = Depends(current_user), s: Session = Depends(db)):
+    from ..workflow import imports
+
+    data = await file.read(5 * 1024 * 1024 + 1)
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(413, "CSV is larger than 5 MB")
+    name = list_name.strip() or (file.filename or "Request list").rsplit(".", 1)[0]
+    batch = imports.start_import(s, user, list_name=name, filename=file.filename or "import.csv", data=data)
+    return {"id": batch.id}
+
+
+@router.get("/imports/batches/{bid}")
+def get_batch(bid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+    from ..workflow import imports
+
+    return imports.batch_view(s, _batch(bid, user, s))
+
+
+class RowEditIn(BaseModel):
+    include: bool | None = None
+    ownership_mode: str | None = None
+    due_date: str | None = None
+    instructions: str | None = None
+    items: list[dict] | None = None
+    merge_into: str | None = None
+
+
+@router.patch("/imports/batches/{bid}/rows/{row_id}")
+def edit_import_row(bid: int, row_id: int, body: RowEditIn, user: User = Depends(current_user), s: Session = Depends(db)):
+    from ..models import ImportRow
+    from ..workflow import imports
+
+    b = _batch(bid, user, s)
+    row = s.get(ImportRow, row_id)
+    if row is None or row.batch_id != b.id:
+        raise HTTPException(404, "not found")
+    try:
+        imports.edit_row(s, user, b, row, body.model_dump(exclude_unset=True))
+    except imports.ImportError_ as e:
+        raise HTTPException(400, str(e)) from e
+    return imports.row_view(row)
+
+
+@router.post("/imports/batches/{bid}/apply")
+def apply_import(bid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+    from ..workflow import imports
+
+    try:
+        return imports.apply(s, user, _batch(bid, user, s))
+    except imports.ImportError_ as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/imports/batches/{bid}/discard")
+def discard_import(bid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+    b = _batch(bid, user, s)
+    if b.status not in ("analyzing", "review", "error"):
+        raise HTTPException(400, f"this import is {b.status}")
+    b.status = "discarded"
+    audit.log(s, actor="requester", actor_detail=user.email, action="import_discarded", workspace_id=user.workspace_id, batch=b.id)
+    return {"ok": True}
+
+
+class SendAllIn(BaseModel):
+    message_ids: list[int] | None = None
+
+
+@router.post("/imports/batches/{bid}/send")
+def send_import(bid: int, body: SendAllIn, user: User = Depends(current_user), s: Session = Depends(db)):
+    from ..workflow import imports
+
+    try:
+        return {"sent": imports.send_all(s, user, _batch(bid, user, s), body.message_ids)}
+    except imports.ImportError_ as e:
+        raise HTTPException(400, str(e)) from e
+
+
+class DraftEditIn(BaseModel):
+    text: str
+
+
+@router.put("/messages/{mid}/draft")
+def edit_draft(mid: int, body: DraftEditIn, user: User = Depends(current_user), s: Session = Depends(db)):
+    m = s.get(OutboundMessage, mid)
+    if m is None or m.workspace_id != user.workspace_id:
+        raise HTTPException(404, "not found")
+    if m.status != "draft":
+        raise HTTPException(400, "only a draft can be edited")
+    if body.text.strip() and body.text != m.text_body:
+        m.text_body = body.text
+        audit.log(s, actor="requester", actor_detail=user.email, action="email_edited", workspace_id=user.workspace_id, request_id=m.request_id, message=m.id)
+    return serialize.outbound(m)
+
+
+# --------------------------------------------------------------------------- dashboard
+
+
+@router.get("/dashboard")
+def dashboard(
+    provider: str | None = None,
+    status: str | None = None,
+    overdue: bool = False,
+    list_id: int | None = None,
+    user: User = Depends(current_user),
+    s: Session = Depends(db),
+):
+    """Who is behind: open items grouped by provider, with days overdue. Filters: provider
+    email, request state (or 'open'), overdue only, import list."""
+    today = clock.local_date(clock.now(s), get_settings().workspace_timezone)
+    q = select(RequestModel).where(RequestModel.workspace_id == user.workspace_id)
+    if list_id:
+        q = q.where(RequestModel.import_list_id == list_id)
+    reqs = s.scalars(q.order_by(RequestModel.due_date, RequestModel.id)).all()
+    groups: dict[int, dict] = {}
+    counts: dict[str, int] = {}
+    for r in reqs:
+        counts[r.state] = counts.get(r.state, 0) + 1
+        if status == "open" and r.state in states.TERMINAL:
+            continue
+        if status and status != "open" and r.state != status:
+            continue
+        summ = serialize.request_summary(s, r, today)
+        if overdue and not summ["overdue_days"]:
+            continue
+        for o in r.owners:
+            if provider and o.provider.email != provider.lower():
+                continue
+            g = groups.setdefault(
+                o.provider_id,
+                {"provider": {"id": o.provider_id, "email": o.provider.email, "name": o.provider.name}, "open": 0, "overdue": 0, "max_days_overdue": 0, "items": []},
+            )
+            g["items"].append(summ)
+            if r.state not in states.TERMINAL:
+                g["open"] += 1
+            if summ["overdue_days"]:
+                g["overdue"] += 1
+                g["max_days_overdue"] = max(g["max_days_overdue"], summ["overdue_days"])
+    providers = sorted(groups.values(), key=lambda g: (-g["max_days_overdue"], -g["overdue"], -g["open"], g["provider"]["email"]))
+    return {
+        "today": today.isoformat(),
+        "counts": counts,
+        "providers_behind": sum(1 for g in providers if g["overdue"]),
+        "providers": providers,
+        "all_providers": sorted({o.provider.email for r in reqs for o in r.owners}),
+    }
