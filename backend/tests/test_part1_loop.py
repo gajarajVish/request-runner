@@ -123,7 +123,7 @@ def test_unsigned_then_signed_completes_with_handback(env):
 
 
 def test_provider_closes_with_partial(env):
-    from .helpers import item, proposal
+    from .helpers import item
 
     items = [item("July 2026 statement"), item("August 2026 statement"), item("September 2026 statement")]
     rid = confirmed_request(env, items=items, title="Q3 bank statements")
