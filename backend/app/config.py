@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_name: str = "RequestRunner"
     app_base_url: str = "http://localhost:5173"
-    session_secret: str = "dev-only-session-secret-change-me"
+    session_secret: str = "dev-only-session-secret-change-me"  # see DEFAULT_SESSION_SECRET
 
     data_dir: Path = REPO_DIR / "var"
     database_url: str = ""  # defaults to sqlite in data_dir
@@ -79,6 +79,27 @@ class Settings(BaseSettings):
     @property
     def outbox_dir(self) -> Path:
         return self.data_dir / "sent-mail"
+
+
+DEFAULT_SESSION_SECRET = "dev-only-session-secret-change-me"
+
+
+def production_problems(s: Settings) -> list[str]:
+    """Settings that are fine for local development but unsafe for a public deployment."""
+    out = []
+    if s.session_secret == DEFAULT_SESSION_SECRET or len(s.session_secret) < 32:
+        out.append("SESSION_SECRET must be set to a random string of at least 32 characters")
+    if not s.app_base_url.startswith("https://"):
+        out.append("APP_BASE_URL must be the public https:// URL (upload links and session cookies depend on it)")
+    if s.email_provider in ("postmark", "sendgrid") and ":" not in s.email_inbound_basic_auth:
+        out.append("EMAIL_INBOUND_BASIC_AUTH must be 'user:password' so inbound webhooks are authenticated")
+    if s.email_provider == "postmark" and not s.postmark_server_token:
+        out.append("POSTMARK_SERVER_TOKEN is required with EMAIL_PROVIDER=postmark")
+    if s.email_provider == "sendgrid" and not s.sendgrid_api_key:
+        out.append("SENDGRID_API_KEY is required with EMAIL_PROVIDER=sendgrid")
+    if s.llm_provider == "anthropic" and not s.anthropic_api_key:
+        out.append("ANTHROPIC_API_KEY is required with LLM_PROVIDER=anthropic")
+    return out
 
 
 @lru_cache

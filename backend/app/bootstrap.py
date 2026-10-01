@@ -45,6 +45,10 @@ def seed(users: list[tuple[str, str, str]] | None = None, workspace_name: str = 
     env_users = os.environ.get("SEED_USERS")  # "Name|email|password;Name|email|password"
     if users is None and env_users:
         users = [tuple(u.split("|")) for u in env_users.split(";") if u.strip()]  # type: ignore[misc]
+    if users is None and not get_settings().is_dev:
+        # never create the well-known demo accounts on a public deployment
+        if not env_users:
+            return
     users = users or SEED_USERS
     with session_scope() as s:
         ws = s.scalars(select(Workspace)).first()

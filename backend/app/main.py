@@ -12,7 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import bootstrap
 from .api import public, routes
-from .config import REPO_DIR, get_settings
+from .config import REPO_DIR, get_settings, production_problems
 from .workflow import jobs, registry  # noqa: F401
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -24,6 +24,12 @@ FRONTEND_DIST = REPO_DIR / "frontend" / "dist"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     cfg = get_settings()
+    if not cfg.is_dev:
+        problems = production_problems(cfg)
+        if problems:
+            raise RuntimeError("Refusing to start in production:\n  - " + "\n  - ".join(problems))
+        if cfg.email_provider == "file":
+            log.warning("EMAIL_PROVIDER=file in production: email is written to disk, not sent")
     bootstrap.ensure_dirs()
     bootstrap.migrate()
     bootstrap.seed()

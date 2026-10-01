@@ -237,3 +237,40 @@ def test_scheduled_follow_up_survives_a_restart(env):
     jobs.recover_interrupted()
     run_jobs(advance_seconds=120)
     assert any(m.to == ["jordan@example.com"] and "still needs" in m.text for m in env.sender.sent)
+
+
+def test_production_refuses_unsafe_settings(env, monkeypatch):
+    from app.config import Settings, production_problems
+
+    bad = Settings(app_env="production", email_provider="postmark", llm_provider="anthropic", app_base_url="http://x")
+    problems = " ".join(production_problems(bad))
+    for needle in ("SESSION_SECRET", "APP_BASE_URL", "EMAIL_INBOUND_BASIC_AUTH", "POSTMARK_SERVER_TOKEN", "ANTHROPIC_API_KEY"):
+        assert needle in problems
+    good = Settings(
+        app_env="production",
+        session_secret="x" * 40,
+        app_base_url="https://rr.example.com",
+        email_provider="postmark",
+        email_inbound_basic_auth="hook:secret",
+        postmark_server_token="t",
+        llm_provider="anthropic",
+        anthropic_api_key="k",
+    )
+    assert production_problems(good) == []
+
+
+def test_production_does_not_seed_demo_accounts(env, monkeypatch):
+    from app import bootstrap
+    from app.config import get_settings
+    from app.db import session_scope
+    from app.models import User
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("SEED_USERS", raising=False)
+    get_settings.cache_clear()
+    with session_scope() as s:
+        before = s.query(User).count()
+    bootstrap.seed()
+    with session_scope() as s:
+        assert s.query(User).count() == before
+        assert s.query(User).filter(User.email == "sam@example.com").first().password_hash  # test fixture user, untouched
