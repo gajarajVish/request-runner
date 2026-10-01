@@ -278,6 +278,16 @@ def _in_range(coord: str, rng: str | None) -> bool:
 
 
 def verify_citation(cit: dict[str, Any], files: dict[str, EvidenceFile]) -> dict[str, Any]:
+    out = _verify_citation(cit, files)
+    # a quote that is itself an instruction to the agent is never evidence for an item
+    # (nearby legitimate text in the same file still counts)
+    if out["verified"] and find_injection_like(cit.get("quote") or "", in_document=False):
+        out["verified"] = False
+        out["problem"] = "cites a passage that reads as instructions to the agent"
+    return out
+
+
+def _verify_citation(cit: dict[str, Any], files: dict[str, EvidenceFile]) -> dict[str, Any]:
     out = {
         "evidence_id": cit.get("evidence_id"),
         "file_id": None,
