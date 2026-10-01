@@ -118,3 +118,41 @@ def resume(s: Session, user: User, req: Request) -> None:
 
 def version_items(v: ChecklistVersion) -> list[dict]:
     return [{"key": i.key, "kind": i.kind, "description": i.description, "criteria": i.criteria, "subpoints": i.subpoints} for i in v.items]
+
+
+def manual_followup(s: Session, user: User, req: Request) -> None:
+    """Requester-initiated follow-up. Not automatic, so it doesn't use the automatic limit."""
+    from .common import add_comment as _ac
+    from .followups import _entry
+    from . import hub
+
+    if req.state not in states.OPEN_WITH_PROVIDER:
+        raise ActionError("request isn't open with a provider")
+    for o in req.owners:
+        if o.closed_at is not None:
+            continue
+        conv = _thread_for(s, o.provider, [req])
+        irt, refs, subject = outbox.thread_headers(s, conv)
+        outbox.queue_message(
+            s,
+            workspace_id=req.workspace_id,
+            kind="manual_followup",
+            idempotency_key=f"manual:{req.id}:{o.provider_id}:{clock.now(s).isoformat()}",
+            to=[o.provider.email],
+            subject=subject,
+            text=emails.provider_update(
+                requester=user,
+                provider_name=o.provider.name,
+                provider_email=o.provider.email,
+                hub_link=hub.hub_url(hub.issue_token(s, o.provider)),
+                outstanding=[_entry(s, req, True)],
+            ),
+            from_name=emails.from_name(user),
+            reply_to=outbox.reply_address(conv.reply_token),
+            conversation=conv,
+            request_id=req.id,
+            in_reply_to=irt,
+            references=refs,
+        )
+    audit.log(s, actor="requester", actor_detail=user.email, action="manual_followup", workspace_id=req.workspace_id, request_id=req.id)
+    _ac(s, req, author="requester", user_id=user.id, kind="note", body="Sent a manual follow-up.")

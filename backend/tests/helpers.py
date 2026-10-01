@@ -127,7 +127,8 @@ def confirmed_request(env, items=MSA_ITEMS, *, send=True, **prop_kw) -> int:
     run_jobs()
     with session_scope() as s:
         req = s.get(Request, rid)
-        v = scoping.latest_proposed(s, req)
+        from app.workflow.common import latest_proposed
+        v = latest_proposed(s, req)
         scoping.confirm(s, user(s), req, v.id)
     if send:
         with session_scope() as s:

@@ -17,7 +17,7 @@ from ..llm import prompts
 from ..llm.schemas import DraftItem, ScopeProposal
 from ..models import ChecklistItem, ChecklistVersion, Comment, Conversation, ConversationRequest, Request, RequestOwner, User
 from . import emails, hub, jobs, outbox, states
-from .common import add_comment, current_version, get_or_create_provider, latest_proposed, next_version_number
+from .common import add_comment, current_version, get_or_create_provider, next_version_number
 
 
 class ScopeError(Exception):

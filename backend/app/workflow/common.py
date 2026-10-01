@@ -13,7 +13,6 @@ from ..models import (
     ChecklistItem,
     ChecklistVersion,
     Comment,
-    ItemVerdict,
     Provider,
     Request,
     RequestDependency,
