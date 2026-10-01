@@ -1,0 +1,65 @@
+part,request,item,file,expected,notes
+1,A,Latest insurance certificate,part1/A_msa-and-insurance/acme-logistics-llc_certificate-of-insurance_2026-2027.pdf,met,Policy period 03/01/2026-03/01/2027 covers today
+1,A,Provider question,part1/A_msa-and-insurance/reply-1_certificate-and-msa-question.eml,met (certificate) + question,Certificate item met. Answer the MSA question if the confirmed scope says which version; otherwise ask the requester
+1,A,Signed MSA,part1/A_msa-and-insurance/acme-msa-2025_unsigned.pdf,not met,No signatures. Follow-up must name the missing signatures
+1,A,Signed MSA,part1/A_msa-and-insurance/acme-msa-2025_signed.pdf,met,Signed by both parties
+1,B,July 2026 statement,part1/B_bank-statements/acme-operating-4410_2026-07.pdf,met,
+1,B,August 2026 statement,part1/B_bank-statements/acme-operating-4410_2026-08.pdf,met,
+1,B,September 2026 statement,part1/B_bank-statements/acme-operating-4410_2026-09.pdf,met,
+1,B,September 2026 statement,part1/B_bank-statements/acme-operating-4410_2026-09.xlsx,partly met,"Readable, right period, but the agreed format was PDFs downloaded from the bank"
+1,B,Provider closes,part1/B_bank-statements/reply_partial-thats-all.eml,closed by provider,"Handback: July and August met, September missing"
+2,R-01,July 2026 statement,part2/R-01/operating-2291_2026-07.pdf,met,
+2,R-01,August 2026 statement,part2/R-01/operating-2291_2026-08.pdf,met,
+2,R-01,September 2026 statement,part2/R-01/operating-2291_2026-09.pdf,met,
+2,R-02,"September reconciliation with preparer, reviewer, dates",part2/R-02/bank-rec_operating-2291_2026-09.xlsx,met,
+2,R-01/R-02/R-03,Combined reply,part2/combined/hannah_R-01_R-02_R-03.eml,met x3,One reply covering three items; each gets its own verdict
+2,R-28,General liability certificate,part2/R-28/general-liability-certificate.pdf,met,
+2,R-28,Cyber certificate,part2/R-28/cyber-certificate.pdf,met,
+2,R-04,INV-1043,part2/R-04/INV-1043_invoice.pdf,met,
+2,R-04,INV-1043,part2/R-04/INV-1043_PO-7781.pdf,met,
+2,R-04,INV-1043,part2/R-04/INV-1043_approval.pdf,met,
+2,R-04,INV-1107,part2/R-04/INV-1107_invoice.pdf,met,
+2,R-04,INV-1107,part2/R-04/INV-1107_PO-7802.pdf,met,
+2,R-04,INV-1107,part2/R-04/INV-1107_approval.pdf,met,
+2,R-04,INV-1188,part2/R-04/INV-1188_invoice.pdf,met,
+2,R-04,INV-1188,part2/R-04/INV-1188_PO-7840.pdf,met,
+2,R-04,INV-1188,part2/R-04/INV-1188_approval.pdf,met,
+2,R-05,Change report,part2/R-05/vendor-bank-changes_2026-07-01_2026-09-30.xlsx,met,
+2,R-05,Screenshot of range and run time,part2/R-05/report-parameters-screenshot.png,met,
+2,R-06,Question answered,part2/R-06/reply.eml,met,Explains the check and where it is recorded
+2,R-26,Additions list,part2/R-26/fixed-asset-additions_q3-2026.xlsx,met,
+2,R-26,Invoice for FA-2214,part2/R-26/LF-0913_invoice.pdf,met,
+2,R-26,Invoice for FA-2210,part2/R-26/BR-5520_invoice.pdf,met,
+2,R-26,Invoice for FA-2229,part2/R-26/BR-5588_invoice.pdf,met,
+2,R-07/R-08,September payroll register,part2/R-07/payroll-register_2026-09.xlsx,met,R-07 and R-08 are duplicates; one file satisfies both after merge
+2,R-09,Question + review evidence,part2/R-09/reply.eml,met,
+2,R-10,New hires list,part2/R-10/new-hires_q3-2026.xlsx,met,
+2,R-11,Leavers list,part2/R-11/leavers_q3-2026.xlsx,met,
+2,R-29,ER-881,part2/R-29/ER-881.pdf,met,
+2,R-29,ER-902,part2/R-29/ER-902.pdf,met,
+2,R-29,ER-915,part2/R-29/ER-915.pdf,met,
+2,R-30,Question answered,part2/R-30/reply.eml,met,
+2,R-12,Removal dates + explanation for >3 days,part2/R-12/reply.eml,met,
+2,R-13,Admin list,part2/R-13/finance-system-admins.xlsx,met,
+2,R-13,Screenshot with pull time,part2/R-13/admin-list-screenshot.png,met,
+2,R-14,Question + most recent review,part2/R-14/reply.eml,met,
+2,R-15,CHG-2201,part2/R-15/CHG-2201.pdf,met,
+2,R-15,CHG-2245,part2/R-15/CHG-2245.pdf,met,
+2,R-15,CHG-2310,part2/R-15/CHG-2310.pdf,met,
+2,R-16,Birchwood Labs,part2/R-16/birchwood-labs_subscription-agreement.pdf,met,
+2,R-16,Orchard Health,part2/R-16/orchard-health_subscription-agreement.pdf,met,
+2,R-16,Tidewater Freight,part2/R-16/tidewater-freight_subscription-agreement.pdf,met,
+2,R-17,Question answered,part2/R-17/reply_good.eml,met,
+2,R-17,Question answered,part2/R-17/reply_dodge.eml,not met,"Dodge: restates policy, doesn't say why September. Follow-up must ask again specifically"
+2,R-18,Credit memo list with reason + approver,part2/R-18/reply.eml,met,Two owners; one reply satisfies the item
+2,R-19,Return as filed,part2/R-19/sales-tax-return_q3-2026.pdf,met,
+2,R-19,Proof of payment,part2/R-19/sales-tax-payment-confirmation.pdf,met,
+2,R-20,Question answered,part2/R-20/reply.eml,met,
+2,R-21,Provision workbook + reviewer,part2/R-21/tax-provision_q3-2026.xlsx,met,Reviewer on the Review tab
+2,R-22,JE-5512,part2/R-22/JE-5512.pdf,met,
+2,R-22,JE-5530,part2/R-22/JE-5530.pdf,met,
+2,R-22,JE-5604,part2/R-22/JE-5604.pdf,met,
+2,R-23,Question answered,part2/R-23/reply.eml,met,
+2,R-24,Close checklist with sign-offs,part2/R-24/close-checklist_2026-09.xlsx,met,
+2,R-27,Lease schedule,part2/R-27/lease-schedule.xlsx,met,
+2,R-25,-,requests.csv,flag before sending,"'Send the usual stuff for Q3.' Too vague to scope; must be flagged, not guessed"

@@ -1,0 +1,15 @@
+From: Leo Park <leo@example.com>
+To: req+REPLACE@in.yourapp.com
+Subject: Re: R-23 Manual entries policy
+Date: Mon, 12 Oct 2026 09:30:00 -0700
+Message-ID: <179074696582.97976.17243304831079931270@example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Only the four people in the Accounting group can post manual entries: me, Han=
+nah, Priya and Tom. The ERP blocks self-approval: an entry can't be approved =
+by the user who posted it (workflow rule WF-JE-02), and that applies to me to=
+o.
+
+Leo

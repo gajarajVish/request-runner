@@ -1,0 +1,31 @@
+request_id,title,instructions,due_date,owner_name,owner_email,backup_email
+R-01,Q3 bank statements,"Bank statements for the operating account (ending 2291) for July, August and September 2026, as PDFs downloaded from the bank.",2026-10-16,Hannah Brooks,hannah@example.com,leo@example.com
+R-02,Bank reconciliation - September,"The September bank reconciliation for the operating account, showing who prepared it, who reviewed it and the date of each.",2026-10-16,Hannah Brooks,hannah@example.com,leo@example.com
+R-03,Reconciling items,"On the September bank reconciliation, what are the three reconciling items over $10,000 and how was each one cleared?",2026-10-23,Hannah Brooks,hannah@example.com,leo@example.com
+R-04,Invoice support - selected invoices,"For each of invoices INV-1043, INV-1107 and INV-1188: the vendor invoice, the matching purchase order and evidence of approval before payment.",2026-10-20,Priya Shah,priya@example.com,leo@example.com
+R-05,Vendor master changes,"A system report of every change to vendor bank details from July 1 to September 30 2026, with a screenshot showing the report's date range and when it was run.",2026-10-20,Priya Shah,priya@example.com,mei@example.com
+R-06,Vendor change approvals,"For the vendor bank-detail changes in R-05, how does someone confirm each change is genuine before it is saved? Point to where that check is recorded.",2026-10-27,Priya Shah,priya@example.com,leo@example.com
+R-07,Payroll register - September,The September payroll register as exported from the payroll system.,2026-10-14,Dan Okafor,dan@example.com,aisha@example.com
+R-08,Payroll register - September,The September payroll register as exported from the payroll system.,2026-10-14,Dan Okafor,dan@example.com,aisha@example.com
+R-09,Payroll review,"Who reviews each payroll run before it is paid, and what do they compare it against? Include the review evidence for the September 15 run.",2026-10-21,Dan Okafor,dan@example.com,leo@example.com
+R-10,New hires Q3,"A list of everyone hired from July 1 to September 30 2026, with start date and department.",2026-10-14,Aisha Karim,aisha@example.com,dan@example.com
+R-11,Leavers Q3,"A list of everyone who left from July 1 to September 30 2026, with last working day.",2026-10-14,Aisha Karim,aisha@example.com,dan@example.com
+R-12,Access removal for leavers,"For each person on the R-11 list, the date their system access was removed. If any removal took more than 3 business days, explain why.",2026-10-28,Mei Lin,mei@example.com,aisha@example.com
+R-13,Admin access list,"A current list of everyone with admin rights in the finance system, with a screenshot showing when the list was pulled.",2026-10-16,Mei Lin,mei@example.com,leo@example.com
+R-14,Admin access review,"Is admin access reviewed on a schedule? If so, send the most recent review and who signed it off. If not, say so.",2026-10-23,Mei Lin,mei@example.com,leo@example.com
+R-15,Change tickets,"For changes CHG-2201, CHG-2245 and CHG-2310: the ticket, the approval and evidence the change was tested before release.",2026-10-23,Mei Lin,mei@example.com,leo@example.com
+R-16,Revenue contracts,"Signed contracts for customers Birchwood Labs, Orchard Health and Tidewater Freight.",2026-10-19,Carlos Ruiz,carlos@example.com,leo@example.com
+R-17,Revenue timing,"For the Tidewater Freight contract, why was $48,500 recognized in September rather than October?",2026-10-26,Carlos Ruiz,carlos@example.com,leo@example.com
+R-18,Credit memos,"All credit memos over $5,000 issued in Q3 2026, with the reason and approver for each.",2026-10-19,Carlos Ruiz; Priya Shah,carlos@example.com; priya@example.com,leo@example.com
+R-19,Sales tax return,"The Q3 sales tax return as filed, and proof of payment.",2026-11-02,Tom Weller,tom@example.com,leo@example.com
+R-20,Sales tax exposure,"Did the company start selling into any new states in 2026? If yes, which states and when did registration happen?",2026-11-02,Tom Weller,tom@example.com,leo@example.com
+R-21,Tax provision,"The Q3 tax provision workbook, and evidence of who reviewed it.",2026-11-06,Tom Weller,tom@example.com,leo@example.com
+R-22,Journal entries,"For journal entries JE-5512, JE-5530 and JE-5604: the entry as posted, the support and evidence of approval.",2026-10-22,Leo Park,leo@example.com,hannah@example.com
+R-23,Manual entries policy,"Who is allowed to post manual journal entries, and can anyone post and approve their own entry?",2026-10-22,Leo Park,leo@example.com,hannah@example.com
+R-24,Month-end checklist,The September close checklist with sign-offs.,2026-10-15,Leo Park,leo@example.com,hannah@example.com
+R-25,Q3 support,Send the usual stuff for Q3.,2026-10-15,Leo Park,leo@example.com,hannah@example.com
+R-26,Fixed asset additions,"A list of fixed assets added in Q3 2026 over $2,500, and the invoice for the three largest.",2026-10-30,Priya Shah,priya@example.com,leo@example.com
+R-27,Lease schedule,The current lease schedule showing each lease's start and end date and monthly payment.,2026-10-30,Leo Park,leo@example.com,
+R-28,Insurance certificates,The current general liability and cyber insurance certificates.,2026-09-30,Hannah Brooks,hannah@example.com,leo@example.com
+R-29,Expense reports,"For expense reports ER-881, ER-902 and ER-915: the receipts and the approver for each.",2026-10-21,Aisha Karim,aisha@example.com,dan@example.com
+R-30,Expense policy,"What is the approval limit for expense reports, and what happens when a report goes over it?",2026-10-21,Aisha Karim,aisha@example.com,dan@example.com

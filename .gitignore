@@ -1,0 +1,27 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# node
+node_modules/
+dist/
+.vite/
+
+# runtime data (db, uploaded files, raw inbound mail)
+var/
+*.db
+*.sqlite*
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/

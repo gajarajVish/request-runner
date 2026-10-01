@@ -1,0 +1,16 @@
+From: Priya Shah <priya@example.com>
+To: req+REPLACE@in.yourapp.com
+Subject: Re: R-06 Vendor change approvals
+Date: Mon, 12 Oct 2026 09:30:00 -0700
+Message-ID: <179074696575.97976.10919018942313297913@example.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Every bank-detail change triggers a callback to the vendor at the phone numbe=
+r already on file, never the number in the change request. Whoever makes the =
+call records their name and the date in the 'Callback verified by' and 'Callb=
+ack date' columns of the vendor change log. Those columns are in the R-05 rep=
+ort I sent.
+
+Priya
