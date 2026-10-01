@@ -241,16 +241,8 @@ def process(inbound_id: int, *, forced_conversation_id: int | None = None) -> No
                     payload={"inbound_id": row.id, "file_ids": [f.id for f in files]},
                 )
             return
-        for r in open_reqs:
-            if not row.sender_is_owner:
-                add_flag(r, "unknown_sender", f"A reply came from {em.from_address}, who isn't a listed provider. Its content was accepted and checked.")
-            add_comment(
-                s, r, author="provider", kind="provider_email",
-                body=body[:4000] or "(no message text)",
-                payload={"inbound_id": row.id, "from": em.from_address, "subject": em.subject, "file_ids": [f.id for f in files], "sender_is_owner": row.sender_is_owner},
-            )
-            if r.state != states.CHECKING:
-                states.transition(s, r, states.CHECKING, actor="provider", reason="reply received", actor_detail=em.from_address)
+        if len(open_reqs) == 1:  # nothing to classify for attribution: show it as checking now
+            _mark_received(s, row, open_reqs[0], [f.id for f in files])
         file_ids = [f.id for f in files]
         text_id = text_ev.id if text_ev else None
         open_ids = [r.id for r in open_reqs]
@@ -272,6 +264,19 @@ def process(inbound_id: int, *, forced_conversation_id: int | None = None) -> No
         _apply_classification(s, row, open_ids, file_ids, text_id, classification, call.context if call else {})
         row.status = "processed"
         row.processed_at = clock.now(s)
+
+
+def _mark_received(s: Session, row: InboundMessage, r: Request, file_ids: list[int]) -> None:
+    """Show the reply in this request's thread and move it to checking."""
+    if not row.sender_is_owner:
+        add_flag(r, "unknown_sender", f"A reply came from {row.from_address}, who isn't a listed provider. Its content was accepted and checked.")
+    add_comment(
+        s, r, author="provider", kind="provider_email",
+        body=(row.new_text or "").strip()[:4000] or "(no message text)",
+        payload={"inbound_id": row.id, "from": row.from_address, "subject": row.subject, "file_ids": file_ids, "sender_is_owner": row.sender_is_owner},
+    )
+    if r.state != states.CHECKING:
+        states.transition(s, r, states.CHECKING, actor="provider", reason="reply received", actor_detail=row.from_address)
 
 
 def _conv_request_ids(session: Session, conv: Conversation | None) -> list[int]:
@@ -343,16 +348,30 @@ def _apply_classification(
             except ValueError:
                 continue
             explicit[fid] = [refs[r] for r in a.request_refs if r in refs]
+    # Which requests is this reply about? In a multi-request thread, only those the classifier
+    # names (attachments, answers, questions, closing). If it can't tell, every open request.
+    touched: list[int] = list(open_ids)
+    if cl and not single:
+        named = {rid for ids in explicit.values() for rid in ids}
+        named |= {refs[r] for r in [*cl.answered_refs, *cl.closing_refs, *[q.request_ref or "" for q in cl.questions]] if r in refs}
+        unplaced = any(not explicit.get(f.id if not f.parent_file_id else f.parent_file_id) for f in all_files)
+        if named and not unplaced:
+            touched = [rid for rid in open_ids if rid in named]
     for f in all_files:
         top = f.id if not f.parent_file_id else f.parent_file_id
-        targets = explicit.get(top) or open_ids
+        targets = explicit.get(top) or touched
         for rid in targets:
             assign(f.id, rid, "single" if single else ("classifier" if explicit.get(top) else "unassigned_broadcast"))
-    # message text: to every open request in the thread (each check judges relevance)
+    # message text: to each request the reply is about (each check judges relevance)
     if text_id:
-        for rid in open_ids:
+        for rid in touched:
             assign(text_id, rid, "single" if single else "thread")
     s.flush()
+    if not single:
+        for rid in touched:
+            r = s.get(Request, rid)
+            if r is not None:
+                _mark_received(s, row, r, file_ids)
 
     sender = row.from_address or ""
     closing_ok = bool(
@@ -368,7 +387,7 @@ def _apply_classification(
             if r:
                 add_comment(s, r, author="system", kind="note", body="The reply looked like it might close the request, but the closing words weren't found in the sender's own message (or the sender isn't a listed provider), so the request stays open.")
     if closing_ok:
-        close_ids = [refs[r] for r in cl.closing_refs if r in refs] or open_ids
+        close_ids = [refs[r] for r in cl.closing_refs if r in refs] or touched
         for rid in close_ids:
             r = s.get(Request, rid)
             if r is None:
@@ -378,7 +397,7 @@ def _apply_classification(
                     o.closed_at = now
             audit.log(s, actor="provider", actor_detail=sender, action="provider_closed", workspace_id=r.workspace_id, request_id=r.id, quote=cl.closing_quote)
     if cl and cl.mentions_attachments and not file_ids:
-        for rid in open_ids:
+        for rid in touched:
             r = s.get(Request, rid)
             if r:
                 add_flag(r, "missing_attachments", "The provider's reply says files are attached, but none arrived.")
@@ -397,8 +416,7 @@ def _apply_classification(
                 s.flush()
                 jobs.enqueue(s, "answer_question", f"question:{pq.id}", {"id": pq.id})
 
-    # check every request that received something (or that was closed)
-    touched = set(open_ids)
+    # check every request the reply is about
     for rid in touched:
         r = s.get(Request, rid)
         if r is not None:

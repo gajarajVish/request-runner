@@ -103,8 +103,9 @@ def _fmt(v: Any) -> str:
         return v.date().isoformat() if v.time() == datetime.min.time() else v.isoformat(sep=" ")
     if isinstance(v, date):
         return v.isoformat()
-    if isinstance(v, float) and v.is_integer():
-        return str(int(v))
+    if isinstance(v, float):
+        # spreadsheet floats carry binary noise (346037.7600000001); show what the cell displays
+        return str(int(v)) if v.is_integer() else format(v, ".12g")
     return str(v).strip()
 
 

@@ -266,7 +266,7 @@ def test_production_does_not_seed_demo_accounts(env, monkeypatch):
     from app.models import User
 
     monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.delenv("SEED_USERS", raising=False)
+    monkeypatch.setenv("SEED_USERS", "")  # also masks a developer .env
     get_settings.cache_clear()
     with session_scope() as s:
         before = s.query(User).count()

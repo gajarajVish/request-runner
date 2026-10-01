@@ -22,17 +22,22 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:5173"
     session_secret: str = "dev-only-session-secret-change-me"  # see DEFAULT_SESSION_SECRET
 
+    seed_users: str = ""  # "Name|email|password;Name|email|password"
     data_dir: Path = REPO_DIR / "var"
     database_url: str = ""  # defaults to sqlite in data_dir
 
     # LLM
-    llm_provider: str = "anthropic"  # anthropic | fake
+    llm_provider: str = "anthropic"  # anthropic | openai | fake
     anthropic_api_key: str = ""
     llm_strong_model: str = "claude-opus-5"
     llm_fast_model: str = "claude-haiku-4-5"
     llm_strong_effort: str = "high"
     llm_max_retries: int = 2  # retries for schema-invalid output
     llm_server_fallbacks: bool = True  # server-side refusal fallback for Opus 5
+    openai_api_key: str = ""
+    openai_strong_model: str = "gpt-5.5"
+    openai_fast_model: str = "gpt-5.4-mini"
+    openai_reasoning_effort: str = "medium"
 
     # Email
     email_provider: str = "file"  # file | postmark | sendgrid
@@ -99,6 +104,8 @@ def production_problems(s: Settings) -> list[str]:
         out.append("SENDGRID_API_KEY is required with EMAIL_PROVIDER=sendgrid")
     if s.llm_provider == "anthropic" and not s.anthropic_api_key:
         out.append("ANTHROPIC_API_KEY is required with LLM_PROVIDER=anthropic")
+    if s.llm_provider == "openai" and not s.openai_api_key:
+        out.append("OPENAI_API_KEY is required with LLM_PROVIDER=openai")
     return out
 
 

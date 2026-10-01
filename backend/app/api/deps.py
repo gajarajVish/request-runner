@@ -13,6 +13,8 @@ from ..models import Request as RequestModel
 
 
 def db() -> Iterator[Session]:
+    """Used as Depends(db, scope="function"): commit before the response is sent, so a client
+    that acts on the response never reads state from before the commit."""
     s = new_session()
     try:
         yield s
@@ -24,7 +26,7 @@ def db() -> Iterator[Session]:
         s.close()
 
 
-def current_user(request: Request, s: Session = Depends(db)) -> User:
+def current_user(request: Request, s: Session = Depends(db, scope="function")) -> User:
     uid = request.session.get("user_id")
     user = s.get(User, uid) if uid else None
     if user is None:

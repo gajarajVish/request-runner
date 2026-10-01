@@ -241,3 +241,47 @@ def test_review_edits_unblock_vague_row_and_survive_reimport(env):
     # the original CSV again: the requester's edit to R-28 is not reverted
     bid2 = upload(CSV)
     assert rows(bid2)["R-28"]["action"] == "unchanged"
+
+
+def test_reply_in_a_batch_thread_only_touches_the_items_it_addresses(env):
+    """Carlos owes R-16, R-17, R-18 in one thread; a reply about R-18 must not recheck (or
+    schedule follow-ups for) R-16 and R-17."""
+    from app.models import Check, Comment, Conversation, ConversationRequest
+    from app.workflow import inbound
+    from app.workflow.outbox import reply_address
+
+    from .conftest import make_eml
+    from .helpers import classify
+
+    bid = upload(CSV)
+    apply(bid)
+    send_all(bid)
+    with session_scope() as s:
+        r18 = s.scalars(select(Request).where(Request.external_id == "R-18")).one()
+        conv = s.scalars(
+            select(Conversation).join(ConversationRequest, ConversationRequest.conversation_id == Conversation.id)
+            .where(ConversationRequest.request_id == r18.id, Conversation.provider_id.in_([o.provider_id for o in r18.owners]))
+        ).all()
+        conv = next(c for c in conv if len(c.links) == 3)  # Carlos's batch: R-16, R-17, R-18
+        to = reply_address(conv.reply_token)
+        ids = [link.request_id for link in conv.links]
+    seen = {}
+
+    def cl(call):
+        refs = call.context["refs"]
+        seen.update(refs)
+        q18 = next(k for k, v in refs.items() if v == r18.id)
+        return classify(answered_refs=[q18], attachment_assignments=[])
+
+    env.llm.on("classify", cl)
+    inbound.ingest_raw(make_eml(to=to, frm="Carlos Ruiz <carlos@example.com>", body="R-18: no credit memos over $5,000 were issued in Q3."))
+    run_jobs()
+    with session_scope() as s:
+        for rid in ids:
+            req = s.get(Request, rid)
+            checks = s.query(Check).filter(Check.request_id == rid).count()
+            shown = s.query(Comment).filter(Comment.request_id == rid, Comment.kind == "provider_email").count()
+            if rid == r18.id:
+                assert checks == 1 and shown == 1
+            else:
+                assert checks == 0 and shown == 0 and req.state == states.WAITING_PROVIDER, req.external_id

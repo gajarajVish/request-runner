@@ -45,7 +45,7 @@ class LoginIn(BaseModel):
 
 
 @router.post("/login")
-def login(body: LoginIn, request: Request, s: Session = Depends(db)):
+def login(body: LoginIn, request: Request, s: Session = Depends(db, scope="function")):
     u = s.scalars(select(User).where(User.email == body.email.strip().lower())).first()
     if u is None or not u.password_hash or not bcrypt.checkpw(body.password.encode(), u.password_hash.encode()):
         raise HTTPException(401, "wrong email or password")
@@ -60,7 +60,7 @@ def logout(request: Request):
 
 
 @router.get("/me")
-def me(request: Request, s: Session = Depends(db)):
+def me(request: Request, s: Session = Depends(db, scope="function")):
     cfg = get_settings()
     uid = request.session.get("user_id")
     u = s.get(User, uid) if uid else None
@@ -76,14 +76,14 @@ def me(request: Request, s: Session = Depends(db)):
 
 
 @router.get("/dev/users")
-def dev_users(s: Session = Depends(db)):
+def dev_users(s: Session = Depends(db, scope="function")):
     if not get_settings().is_dev:
         raise HTTPException(404)
     return [{"id": u.id, "name": u.name, "email": u.email} for u in s.scalars(select(User).order_by(User.id))]
 
 
 @router.post("/dev/switch-user/{uid}")
-def dev_switch(uid: int, request: Request, s: Session = Depends(db)):
+def dev_switch(uid: int, request: Request, s: Session = Depends(db, scope="function")):
     if not get_settings().is_dev:
         raise HTTPException(404)
     u = s.get(User, uid)
@@ -97,7 +97,7 @@ def dev_switch(uid: int, request: Request, s: Session = Depends(db)):
 
 
 @router.get("/requests")
-def list_requests(user: User = Depends(current_user), s: Session = Depends(db)):
+def list_requests(user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     rows = s.scalars(select(RequestModel).where(RequestModel.workspace_id == user.workspace_id).order_by(RequestModel.id.desc())).all()
     today = clock.local_date(clock.now(s), get_settings().workspace_timezone)
     return [serialize.request_summary(s, r, today) for r in rows]
@@ -108,7 +108,7 @@ class TextIn(BaseModel):
 
 
 @router.post("/requests")
-def create_request(body: TextIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def create_request(body: TextIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     if not body.text.strip():
         raise HTTPException(400, "empty comment")
     req = scoping.create_from_comment(s, user, body.text.strip())
@@ -116,12 +116,12 @@ def create_request(body: TextIn, user: User = Depends(current_user), s: Session 
 
 
 @router.get("/requests/{rid}")
-def get_request(rid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def get_request(rid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return serialize.request_detail(s, owned_request(rid, user, s))
 
 
 @router.post("/requests/{rid}/comments")
-def post_comment(rid: int, body: TextIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def post_comment(rid: int, body: TextIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     req = owned_request(rid, user, s)
     if not body.text.strip():
         raise HTTPException(400, "empty comment")
@@ -140,7 +140,7 @@ class ItemsIn(BaseModel):
 
 
 @router.put("/requests/{rid}/versions/{vid}")
-def edit_proposed(rid: int, vid: int, body: ItemsIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def edit_proposed(rid: int, vid: int, body: ItemsIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     """Requester edits a proposed checklist. Saved as a new proposed version (created_by=requester)."""
     from ..llm.schemas import DraftItem
 
@@ -183,7 +183,7 @@ class ConfirmIn(BaseModel):
 
 
 @router.post("/requests/{rid}/confirm")
-def confirm(rid: int, body: ConfirmIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def confirm(rid: int, body: ConfirmIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     req = owned_request(rid, user, s)
     try:
         scoping.confirm(s, user, req, body.version_id, cc_requester=body.cc_requester)
@@ -198,7 +198,7 @@ class SendIn(BaseModel):
 
 
 @router.post("/requests/{rid}/send")
-def send(rid: int, body: SendIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def send(rid: int, body: SendIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     req = owned_request(rid, user, s)
     try:
         scoping.send_draft(s, user, req, body.message_id, body.text)
@@ -220,27 +220,27 @@ def _act(fn, *args):
 
 
 @router.post("/requests/{rid}/cancel")
-def cancel(rid: int, body: ReasonIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def cancel(rid: int, body: ReasonIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(actions.cancel, s, user, owned_request(rid, user, s), body.reason)
 
 
 @router.post("/requests/{rid}/accept")
-def accept(rid: int, body: ReasonIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def accept(rid: int, body: ReasonIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(actions.accept, s, user, owned_request(rid, user, s), body.reason)
 
 
 @router.post("/requests/{rid}/resume")
-def resume(rid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def resume(rid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(actions.resume, s, user, owned_request(rid, user, s))
 
 
 @router.post("/requests/{rid}/manual-followup")
-def manual_followup(rid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def manual_followup(rid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(actions.manual_followup, s, user, owned_request(rid, user, s))
 
 
 @router.post("/requests/{rid}/recheck")
-def recheck(rid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def recheck(rid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(actions.retry_check, s, user, owned_request(rid, user, s))
 
 
@@ -251,7 +251,7 @@ class OverrideIn(BaseModel):
 
 
 @router.post("/requests/{rid}/override")
-def override(rid: int, body: OverrideIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def override(rid: int, body: OverrideIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(actions.override, s, user, owned_request(rid, user, s), body.item_key, body.verdict, body.reason)
 
 
@@ -260,7 +260,7 @@ class DueIn(BaseModel):
 
 
 @router.post("/requests/{rid}/due-date")
-def due_date(rid: int, body: DueIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def due_date(rid: int, body: DueIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(actions.change_due_date, s, user, owned_request(rid, user, s), body.due_date)
 
 
@@ -270,12 +270,12 @@ class AnswerIn(BaseModel):
 
 
 @router.post("/requests/{rid}/answer-question")
-def answer_question(rid: int, body: AnswerIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def answer_question(rid: int, body: AnswerIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     return _act(inbound.answer_from_requester, s, user.email, owned_request(rid, user, s), body.question_id, body.answer)
 
 
 @router.post("/requests/{rid}/chat")
-def chat(rid: int, body: TextIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def chat(rid: int, body: TextIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..workflow import chat as chat_mod
 
     req = owned_request(rid, user, s)
@@ -283,7 +283,7 @@ def chat(rid: int, body: TextIn, user: User = Depends(current_user), s: Session 
 
 
 @router.post("/messages/{mid}/resend")
-def resend(mid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def resend(mid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     m = s.get(OutboundMessage, mid)
     if m is None or m.workspace_id != user.workspace_id:
         raise HTTPException(404)
@@ -295,7 +295,7 @@ def resend(mid: int, user: User = Depends(current_user), s: Session = Depends(db
 
 
 @router.get("/messages")
-def list_messages(user: User = Depends(current_user), s: Session = Depends(db)):
+def list_messages(user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     rows = s.scalars(select(OutboundMessage).where(OutboundMessage.workspace_id == user.workspace_id).order_by(OutboundMessage.id.desc()).limit(300)).all()
     return [serialize.outbound(m) for m in rows]
 
@@ -311,7 +311,7 @@ def _file_for(fid: int, user: User, s: Session) -> EvidenceFile:
 
 
 @router.get("/files/{fid}/download")
-def download(fid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def download(fid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     f = _file_for(fid, user, s)
     if f.kind == "text" or not f.blob:
         raise HTTPException(404)
@@ -325,7 +325,7 @@ def download(fid: int, user: User = Depends(current_user), s: Session = Depends(
 
 
 @router.get("/files/{fid}/images/{idx}")
-def file_image(fid: int, idx: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def file_image(fid: int, idx: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     """Rendered page images (our own PNG renders, never the provider's original bytes)."""
     f = _file_for(fid, user, s)
     imgs = (f.extraction or {}).get("images", [])
@@ -335,7 +335,7 @@ def file_image(fid: int, idx: int, user: User = Depends(current_user), s: Sessio
 
 
 @router.get("/files/{fid}")
-def file_detail(fid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def file_detail(fid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     f = _file_for(fid, user, s)
     out = serialize.file(f)
     out["segments"] = [{"label": sg["label"], "text": sg["text"][:20000]} for sg in (f.extraction or {}).get("segments", [])]
@@ -346,7 +346,7 @@ def file_detail(fid: int, user: User = Depends(current_user), s: Session = Depen
 
 
 @router.get("/inbound")
-def list_inbound(status: str | None = None, user: User = Depends(current_user), s: Session = Depends(db)):
+def list_inbound(status: str | None = None, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     q = select(InboundMessage).order_by(InboundMessage.id.desc()).limit(200)
     rows = s.scalars(q).all()
     out = []
@@ -375,7 +375,7 @@ class AssignIn(BaseModel):
 
 
 @router.post("/inbound/{iid}/assign")
-def assign_inbound(iid: int, body: AssignIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def assign_inbound(iid: int, body: AssignIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     m = s.get(InboundMessage, iid)
     c = s.get(Conversation, body.conversation_id)
     if m is None or c is None or c.workspace_id != user.workspace_id or m.workspace_id not in (None, user.workspace_id):
@@ -393,7 +393,7 @@ def assign_inbound(iid: int, body: AssignIn, user: User = Depends(current_user),
 
 
 @router.get("/conversations")
-def list_conversations(user: User = Depends(current_user), s: Session = Depends(db)):
+def list_conversations(user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     rows = s.scalars(select(Conversation).where(Conversation.workspace_id == user.workspace_id).order_by(Conversation.id.desc())).all()
     return [{"id": c.id, "subject": c.subject, "provider": s.get(Provider, c.provider_id).email} for c in rows]
 
@@ -402,7 +402,7 @@ def list_conversations(user: User = Depends(current_user), s: Session = Depends(
 
 
 @router.get("/audit")
-def audit_log(user: User = Depends(current_user), s: Session = Depends(db)):
+def audit_log(user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     rows = s.scalars(select(AuditLog).where(AuditLog.workspace_id == user.workspace_id).order_by(AuditLog.id.desc()).limit(500)).all()
     return [{"id": a.id, "at": serialize.iso(a.at), "actor": a.actor, "actor_detail": a.actor_detail, "action": a.action, "request_id": a.request_id, "detail": a.detail} for a in rows]
 
@@ -445,7 +445,7 @@ class AdvanceIn(BaseModel):
 
 
 @router.post("/dev/clock/advance")
-def advance_clock(body: AdvanceIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def advance_clock(body: AdvanceIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     if not get_settings().is_dev:
         raise HTTPException(404)
     applied = clock.advance(s, body.seconds, body.key)
@@ -458,7 +458,7 @@ def advance_clock(body: AdvanceIn, user: User = Depends(current_user), s: Sessio
 
 
 @router.post("/dev/sweep")
-def run_sweep(user: User = Depends(current_user), s: Session = Depends(db)):
+def run_sweep(user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..workflow.followups import enqueue_sweep
 
     enqueue_sweep(s)
@@ -495,7 +495,7 @@ def _batch(bid: int, user: User, s: Session):
 
 
 @router.get("/imports")
-def list_imports(user: User = Depends(current_user), s: Session = Depends(db)):
+def list_imports(user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..models import ImportBatch, ImportList
     from ..workflow.imports import summary
 
@@ -514,7 +514,7 @@ def list_imports(user: User = Depends(current_user), s: Session = Depends(db)):
 
 
 @router.post("/imports")
-async def upload_import(file: UploadFile = File(...), list_name: str = Form(""), user: User = Depends(current_user), s: Session = Depends(db)):
+async def upload_import(file: UploadFile = File(...), list_name: str = Form(""), user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..workflow import imports
 
     data = await file.read(5 * 1024 * 1024 + 1)
@@ -526,7 +526,7 @@ async def upload_import(file: UploadFile = File(...), list_name: str = Form(""),
 
 
 @router.get("/imports/batches/{bid}")
-def get_batch(bid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def get_batch(bid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..workflow import imports
 
     return imports.batch_view(s, _batch(bid, user, s))
@@ -542,7 +542,7 @@ class RowEditIn(BaseModel):
 
 
 @router.patch("/imports/batches/{bid}/rows/{row_id}")
-def edit_import_row(bid: int, row_id: int, body: RowEditIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def edit_import_row(bid: int, row_id: int, body: RowEditIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..models import ImportRow
     from ..workflow import imports
 
@@ -558,7 +558,7 @@ def edit_import_row(bid: int, row_id: int, body: RowEditIn, user: User = Depends
 
 
 @router.post("/imports/batches/{bid}/apply")
-def apply_import(bid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def apply_import(bid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..workflow import imports
 
     try:
@@ -568,7 +568,7 @@ def apply_import(bid: int, user: User = Depends(current_user), s: Session = Depe
 
 
 @router.post("/imports/batches/{bid}/discard")
-def discard_import(bid: int, user: User = Depends(current_user), s: Session = Depends(db)):
+def discard_import(bid: int, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     b = _batch(bid, user, s)
     if b.status not in ("analyzing", "review", "error"):
         raise HTTPException(400, f"this import is {b.status}")
@@ -582,7 +582,7 @@ class SendAllIn(BaseModel):
 
 
 @router.post("/imports/batches/{bid}/send")
-def send_import(bid: int, body: SendAllIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def send_import(bid: int, body: SendAllIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..workflow import imports
 
     try:
@@ -596,7 +596,7 @@ class DraftEditIn(BaseModel):
 
 
 @router.put("/messages/{mid}/draft")
-def edit_draft(mid: int, body: DraftEditIn, user: User = Depends(current_user), s: Session = Depends(db)):
+def edit_draft(mid: int, body: DraftEditIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     m = s.get(OutboundMessage, mid)
     if m is None or m.workspace_id != user.workspace_id:
         raise HTTPException(404, "not found")
@@ -618,7 +618,7 @@ def dashboard(
     overdue: bool = False,
     list_id: int | None = None,
     user: User = Depends(current_user),
-    s: Session = Depends(db),
+    s: Session = Depends(db, scope="function"),
 ):
     """Who is behind: open items grouped by provider, with days overdue. Filters: provider
     email, request state (or 'open'), overdue only, import list."""

@@ -40,9 +40,8 @@ def hash_password(pw: str) -> str:
 
 
 def seed(users: list[tuple[str, str, str]] | None = None, workspace_name: str = "Alder & Finch Co.") -> None:
-    import os
 
-    env_users = os.environ.get("SEED_USERS")  # "Name|email|password;Name|email|password"
+    env_users = get_settings().seed_users  # "Name|email|password;Name|email|password" (env or .env)
     if users is None and env_users:
         users = [tuple(u.split("|")) for u in env_users.split(";") if u.strip()]  # type: ignore[misc]
     if users is None and not get_settings().is_dev:

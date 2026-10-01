@@ -277,6 +277,31 @@ def _in_range(coord: str, rng: str | None) -> bool:
     return min(c1, c2) <= c <= max(c1, c2) and min(r1, r2) <= r <= max(r1, r2)
 
 
+_CELL_REF = re.compile(r"^\$?([A-Za-z]{1,3})\$?(\d+)\s*[=:]\s*(.*)$", re.S)
+
+
+def _cells_match(quote: str, cells: dict[str, str], rng: str | None, in_range: list[str]) -> bool:
+    """A sheet quote is a list of fragments separated by | ; or newlines, optionally with '...'
+    gaps. A fragment written as `B2=Hannah Brooks` (the form the model is shown) must match that
+    exact cell, inside the cited range; a bare fragment must match some cell in the range."""
+    frags = [f.strip() for f in re.split(r"\s*[|;\n]\s*", quote)]
+    frags = [f for f in frags if f and not re.fullmatch(r"(\.\.\.|…)+", f)]
+    if not frags:
+        return False
+    for f in frags:
+        m = _CELL_REF.match(f)
+        if m:
+            ref = f"{m[1].upper()}{m[2]}"
+            value = m[3].strip()
+            if ref not in cells or not _in_range(ref, rng):
+                return False
+            if value and not _contains(cells[ref], value):
+                return False
+        elif not any(_contains(v, f) for v in in_range):
+            return False
+    return True
+
+
 def verify_citation(cit: dict[str, Any], files: dict[str, EvidenceFile]) -> dict[str, Any]:
     out = _verify_citation(cit, files)
     # a quote that is itself an instruction to the agent is never evidence for an item
@@ -343,8 +368,7 @@ def _verify_citation(cit: dict[str, Any], files: dict[str, EvidenceFile]) -> dic
             cells = sg.get("cells", {})
             in_range = [v for k, v in cells.items() if _in_range(k, rng)]
             joined = " | ".join(in_range)
-            frags = [f for f in re.split(r"\s*\|\s*", quote) if f.strip()] if quote else []
-            ok = bool(quote) and (_contains(joined, quote) or (frags and all(any(_contains(v, f) for v in in_range) for f in frags)))
+            ok = bool(quote) and (_contains(joined, quote) or _cells_match(quote, cells, rng, in_range))
             if ok:
                 out["verified"] = True
                 out["location"] = f"sheet '{sg['loc']['sheet']}'" + (f" {rng}" if rng else "")

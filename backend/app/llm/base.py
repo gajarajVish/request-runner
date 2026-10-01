@@ -45,6 +45,10 @@ def get_llm() -> LLM:
             from .fake import FakeLLM
 
             _llm = FakeLLM()
+        elif get_settings().llm_provider == "openai":
+            from .openai_llm import OpenAILLM
+
+            _llm = OpenAILLM()
         else:
             from .anthropic_llm import AnthropicLLM
 

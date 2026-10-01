@@ -63,7 +63,7 @@ def _hub(token: str, request: Request, s: Session, *, limit: int = 120, window: 
 
 
 @router.get("/api/hub/{token}")
-def hub_view(token: str, request: Request, s: Session = Depends(db)):
+def hub_view(token: str, request: Request, s: Session = Depends(db, scope="function")):
     tok, provider, reqs = _hub(token, request, s)
     today = clock.local_date(clock.now(s), get_settings().workspace_timezone)
     items = []
@@ -117,7 +117,7 @@ def _eligible(reqs: list[RequestModel], request_id: int | None) -> list[RequestM
 
 
 @router.post("/api/hub/{token}/upload")
-async def hub_upload(token: str, request: Request, file: UploadFile = File(...), request_id: int | None = Form(None), s: Session = Depends(db)):
+async def hub_upload(token: str, request: Request, file: UploadFile = File(...), request_id: int | None = Form(None), s: Session = Depends(db, scope="function")):
     cfg = get_settings()
     tok, provider, reqs = _hub(token, request, s, limit=40, window=600)
     targets = _eligible(reqs, request_id)
@@ -153,7 +153,7 @@ class AnswerIn(BaseModel):
 
 
 @router.post("/api/hub/{token}/answer")
-def hub_answer(token: str, body: AnswerIn, request: Request, s: Session = Depends(db)):
+def hub_answer(token: str, body: AnswerIn, request: Request, s: Session = Depends(db, scope="function")):
     tok, provider, reqs = _hub(token, request, s, limit=60, window=600)
     (r,) = _eligible(reqs, body.request_id)
     text = body.text.strip()
@@ -176,7 +176,7 @@ class CloseIn(BaseModel):
 
 
 @router.post("/api/hub/{token}/close")
-def hub_close(token: str, body: CloseIn, request: Request, s: Session = Depends(db)):
+def hub_close(token: str, body: CloseIn, request: Request, s: Session = Depends(db, scope="function")):
     """'That's all I have' for one item, or for everything on the page."""
     tok, provider, reqs = _hub(token, request, s, limit=30, window=600)
     targets = _eligible(reqs, body.request_id)

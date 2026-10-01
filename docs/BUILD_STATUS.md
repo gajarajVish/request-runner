@@ -19,3 +19,15 @@ email setup, deployment, architecture, assumptions and limitations.
   (`LLM_PROVIDER=anthropic`) through the README demo script.
 - Known gaps (see README "Limitations"): the hub refreshes by polling, not SSE; with "both
   must respond" nothing is sent automatically to the silent owner beyond normal reminders.
+
+## Paused 2026-10-01 (evening): next steps
+
+- Local demo instance runs with `LLM_PROVIDER=openai` (key in the git-ignored `.env`), user
+  "Vishva Gajaraj" (vgajaraj@engineering.upenn.edu / requester). Run the demo at the fixtures'
+  date: advance the demo clock 11 days first (fixtures are dated Oct 12, 2026).
+- Last full real-model run matched manifest.csv except R-06 (model strict on "before it is
+  saved"; tuning question) and, once, the bank-statement "that's all I have for now" not
+  closing; the classify prompt was clarified but not re-verified.
+- Not yet done: a clean rerun + screenshot gallery of the MVP for the user to direct UI changes.
+  Driver scripts lived in the session scratchpad (demo.py, shots.py); rebuild from the README
+  demo script if needed.

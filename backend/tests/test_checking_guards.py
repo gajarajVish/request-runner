@@ -323,3 +323,22 @@ def test_macro_enabled_office_file_is_rejected(env):
         f = s.scalars(select(EvidenceFile).where(EvidenceFile.kind == "file")).one()
         assert f.accepted is False and "macro" in (f.rejection_reason or "").lower()
         assert f.blob is None  # never stored
+
+
+def test_sheet_quotes_in_cell_ref_form_verify_against_the_exact_cells():
+    from app.workflow.evidence import _cells_match
+
+    cells = {"A1": "Role", "B1": "Name", "A2": "Prepared by", "B2": "Hannah Brooks", "C2": "2026-10-05", "B8": "0"}
+    vals = list(cells.values())
+    assert _cells_match("A1=Role | B1=Name; A2=Prepared by | B2=Hannah Brooks | C2=2026-10-05", cells, "A1:C3", vals)
+    assert _cells_match("A2=Prepared by | ... | B8=0", cells, "A1:C8", vals)
+    assert _cells_match("Hannah Brooks", cells, "A1:C3", vals)
+    assert not _cells_match("B2=Leo Park", cells, "A1:C3", vals)  # wrong value
+    assert not _cells_match("B8=0", cells, "A1:C3", vals)  # outside the cited range
+    assert not _cells_match("...", cells, None, vals)
+
+
+def test_float_cells_show_displayed_value():
+    from app.extraction.core import _fmt
+
+    assert _fmt(346037.7600000001) == "346037.76" and _fmt(12.0) == "12" and _fmt(0.1 + 0.2) == "0.3"
