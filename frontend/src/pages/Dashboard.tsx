@@ -62,7 +62,6 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Follow-up"
         title="Who's behind"
         meta={data && <span>As of {fmtDate(data.today)} · people sorted by days overdue</span>}
         actions={

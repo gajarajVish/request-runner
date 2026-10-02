@@ -10,10 +10,12 @@ export function useMe() {
 
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: "/", label: "Requests", icon: "requests", end: true },
-  { to: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { to: "/imports", label: "Imports", icon: "imports" },
-  { to: "/inbox", label: "Inbox", icon: "inbox" },
-  { to: "/activity", label: "Activity", icon: "activity" },
+  { to: "/dashboard", label: "Who's behind", icon: "dashboard" },
+  { to: "/imports", label: "Request lists", icon: "imports" },
+];
+const NAV_MORE: { to: string; label: string; icon: IconName }[] = [
+  { to: "/inbox", label: "Unmatched email", icon: "inbox" },
+  { to: "/activity", label: "Audit log", icon: "activity" },
 ];
 
 function Logo({ name }: { name: string }) {
@@ -41,21 +43,27 @@ export function Shell() {
     );
   }
   if (!me.data?.user) return <Login me={me.data} />;
+  const link = (n: { to: string; label: string; icon: IconName; end?: boolean }, small?: boolean) => (
+    <NavLink
+      key={n.to}
+      to={n.to}
+      end={n.end}
+      className={({ isActive }) =>
+        cx(
+          "flex items-center gap-2.5 rounded-md px-2.5 font-medium transition-colors",
+          small ? "h-7 text-xs" : "h-8 text-[13px]",
+          isActive ? "bg-white/10 text-white" : small ? "text-ink-500 hover:bg-white/5 hover:text-white" : "text-ink-300 hover:bg-white/5 hover:text-white",
+        )
+      }
+    >
+      <Icon name={n.icon} size={small ? 14 : 16} />
+      {n.label}
+    </NavLink>
+  );
   const nav = (
-    <nav aria-label="Main" className="space-y-0.5">
-      {NAV.map((n) => (
-        <NavLink
-          key={n.to}
-          to={n.to}
-          end={n.end}
-          className={({ isActive }) =>
-            cx("flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors", isActive ? "bg-white/10 text-white" : "text-ink-300 hover:bg-white/5 hover:text-white")
-          }
-        >
-          <Icon name={n.icon} />
-          {n.label}
-        </NavLink>
-      ))}
+    <nav aria-label="Main">
+      <div className="space-y-0.5">{NAV.map((n) => link(n))}</div>
+      <div className="mt-5 space-y-0.5">{NAV_MORE.map((n) => link(n, true))}</div>
     </nav>
   );
   return (
@@ -64,8 +72,7 @@ export function Shell() {
         <div className="px-1.5">
           <Logo name={me.data.app_name} />
         </div>
-        <p className="mt-6 px-2.5 pb-1.5 text-2xs font-semibold uppercase tracking-[0.08em] text-ink-500">Workspace</p>
-        {nav}
+        <div className="mt-6">{nav}</div>
         <div className="mt-auto space-y-2 border-t border-white/10 pt-3">
           {me.data.dev && <DemoClock me={me.data} />}
           <UserMenu me={me.data} />

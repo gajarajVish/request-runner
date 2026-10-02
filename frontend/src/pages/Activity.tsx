@@ -21,7 +21,7 @@ export function ActivityPage() {
   const sent = useQuery({ queryKey: ["messages"], queryFn: () => api.get<Outbound[]>("/api/messages"), enabled: tab === "sent" });
   return (
     <div>
-      <PageHeader eyebrow="Records" title="Activity" meta={<span>Every action by you, the agent, providers and the system, in order. Entries can't be edited or deleted.</span>} />
+      <PageHeader title="Audit log" meta={<span>Every action by you, the agent, providers and the system, in order. Entries can't be edited or deleted.</span>} />
       <div className="mb-4">
         <Tabs
           value={tab}

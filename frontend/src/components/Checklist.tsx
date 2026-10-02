@@ -1,6 +1,6 @@
 import { Fragment, useState } from "react";
 import type { Citation, EvidenceFile, Item, Subpoint, Verdict } from "../api";
-import { Badge, Button, Disclosure, Icon, VERDICT, VerdictBadge, cx, inputCls } from "./ui";
+import { Badge, Button, Disclosure, Icon, VerdictBadge, cx, inputCls } from "./ui";
 
 // --------------------------------------------------------------------------- read-only view
 
@@ -31,8 +31,6 @@ export function criteriaFields(c: Record<string, any>): [string, string][] {
   return out;
 }
 
-const RAIL: Record<string, string> = { green: "before:bg-emerald-500", red: "before:bg-red-500", amber: "before:bg-amber-500", violet: "before:bg-violet-500", slate: "before:bg-slate-300", blue: "before:bg-brand-500" };
-
 export function ChecklistView({ items, files, onOverride }: { items: Item[]; files?: EvidenceFile[]; onOverride?: (item: Item) => void }) {
   return (
     <ol className="divide-y divide-slate-200">
@@ -43,60 +41,81 @@ export function ChecklistView({ items, files, onOverride }: { items: Item[]; fil
   );
 }
 
+const MARK: Record<string, { icon: "check" | "x" | "alert" | "clock"; cls: string }> = {
+  met: { icon: "check", cls: "bg-emerald-600 text-white" },
+  partly_met: { icon: "alert", cls: "bg-amber-500 text-white" },
+  not_met: { icon: "x", cls: "bg-red-600 text-white" },
+  unreadable: { icon: "alert", cls: "bg-violet-600 text-white" },
+};
+
 function ItemRow({ n, item, files, onOverride }: { n: number; item: Item; files?: EvidenceFile[]; onOverride?: (item: Item) => void }) {
   const v = item.verdict;
   const crit = criteriaFields(item.criteria);
   const must = (item.criteria.required_elements as string[] | undefined) ?? [];
-  const tone = v ? (VERDICT[v.verdict]?.tone ?? "slate") : "slate";
+  const judged = v && v.verdict !== "pending";
+  const mark = judged ? MARK[v.verdict] : undefined;
+  const sources = judged && v.verdict === "met" ? [...new Set((v.citations ?? []).map((c) => c.filename).filter(Boolean))] : [];
+  const [open, setOpen] = useState(false);
   return (
-    <li className={cx("relative py-3.5 pl-4 pr-1 before:absolute before:inset-y-3.5 before:left-0 before:w-[3px] before:rounded-full", RAIL[tone])}>
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
-        <p className="min-w-0 flex-1 text-[13.5px] font-medium leading-snug text-slate-900">
-          <span className="mr-1.5 tabular-nums text-slate-500">{n}.</span>
-          {item.description}
-        </p>
-        <div className="flex items-center gap-1.5">
-          <Badge tone="slate">{item.kind === "answer" ? "Answer" : "Document"}</Badge>
-          {v?.source === "requester_override" && (
-            <Badge tone="blue" title={v.override_reason}>
-              Overridden
-            </Badge>
+    <li className="py-3">
+      <div className="flex items-start gap-3">
+        <span className={cx("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full", mark ? mark.cls : "border-2 border-slate-300 text-[10px] font-semibold text-slate-500")} aria-hidden>
+          {mark ? <Icon name={mark.icon} size={12} /> : n}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+            <p className="min-w-0 flex-1 text-[13.5px] font-medium leading-snug text-slate-900">{item.description}</p>
+            <div className="flex items-center gap-1.5">
+              {v?.source === "requester_override" && <Badge tone="blue" title={v.override_reason}>Overridden</Badge>}
+              {v ? <VerdictBadge verdict={v.verdict} /> : item.kind === "answer" && <Badge>Answer</Badge>}
+            </div>
+          </div>
+          {judged && v.verdict !== "met" && v.missing?.[0] && <p className="mt-1 text-[13px] text-red-800">Still needed: {v.missing.join(" ")}</p>}
+          {sources.length > 0 && (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+              <Icon name="file" size={13} className="text-slate-500" />
+              {sources.join(", ")}
+            </p>
           )}
-          {v && <VerdictBadge verdict={v.verdict} />}
+          {!v && (crit.length > 0 || must.length > 0 || item.subpoints.length > 0) && (
+            <p className="mt-1 text-xs text-slate-600">
+              {[...crit.map(([k, val]) => `${k}: ${val}`), ...(must.length ? [`Must show: ${must.join("; ")}`] : []), ...item.subpoints.map((sp) => sp.text)].join(" · ")}
+            </p>
+          )}
+          {(judged || onOverride) && (
+            <button onClick={() => setOpen(!open)} aria-expanded={open} className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800">
+              <Icon name="chevronRight" size={12} className={cx("transition-transform", open && "rotate-90")} />
+              {open ? "Hide details" : "Details"}
+            </button>
+          )}
+          {open && (
+            <div className="mt-2 space-y-2 rounded-md border border-slate-200 bg-slate-50/60 p-3">
+              {(crit.length > 0 || must.length > 0) && (
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
+                  {crit.map(([k, val]) => (
+                    <Fragment key={k}>
+                      <dt className="text-slate-500">{k}</dt>
+                      <dd className="text-slate-700">{val}</dd>
+                    </Fragment>
+                  ))}
+                  {must.length > 0 && (
+                    <>
+                      <dt className="text-slate-500">Must show</dt>
+                      <dd className="text-slate-700">{must.join("; ")}</dd>
+                    </>
+                  )}
+                </dl>
+              )}
+              {judged && <VerdictDetail item={item} v={v} files={files} />}
+              {judged && onOverride && (
+                <button onClick={() => onOverride(item)} className="text-xs font-medium text-slate-500 hover:text-brand-700">
+                  Override verdict…
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
-      {(crit.length > 0 || must.length > 0) && (
-        <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
-          {crit.map(([k, val]) => (
-            <Fragment key={k}>
-              <dt className="text-slate-500">{k}</dt>
-              <dd className="text-slate-700">{val}</dd>
-            </Fragment>
-          ))}
-          {must.length > 0 && (
-            <>
-              <dt className="text-slate-500">Must show</dt>
-              <dd className="text-slate-700">{must.join("; ")}</dd>
-            </>
-          )}
-        </dl>
-      )}
-      {item.subpoints.length > 0 && !v && (
-        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-slate-700">
-          {item.subpoints.map((sp) => (
-            <li key={sp.key}>
-              {sp.text}
-              {sp.condition && <span className="text-slate-500"> ({sp.condition})</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-      {v && v.verdict !== "pending" && <VerdictDetail item={item} v={v} files={files} />}
-      {v && onOverride && v.verdict !== "pending" && (
-        <button onClick={() => onOverride(item)} className="mt-2 text-xs font-medium text-slate-500 hover:text-brand-700">
-          Override verdict…
-        </button>
-      )}
     </li>
   );
 }
@@ -104,19 +123,9 @@ function ItemRow({ n, item, files, onOverride }: { n: number; item: Item; files?
 function VerdictDetail({ item, v, files }: { item: Item; v: Verdict; files?: EvidenceFile[] }) {
   const cites = v.citations ?? [];
   return (
-    <div className="mt-2.5 space-y-2.5">
+    <div className="space-y-2.5">
       {v.rationale && <p className="text-[13px] leading-relaxed text-slate-700">{v.rationale}</p>}
       {v.source === "requester_override" && v.override_reason && <p className="text-xs text-slate-600">Override reason: {v.override_reason}</p>}
-      {v.missing?.length > 0 && v.verdict !== "met" && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
-          <p className="mb-0.5 font-semibold">Still needed</p>
-          <ul className="list-disc space-y-0.5 pl-4">
-            {v.missing.map((m, i) => (
-              <li key={i}>{m}</li>
-            ))}
-          </ul>
-        </div>
-      )}
       {v.review_flags?.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {v.review_flags.map((f) => (

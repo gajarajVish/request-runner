@@ -312,14 +312,14 @@ export const inputCls =
 /** Segmented control for mutually exclusive filters. */
 export function Segmented<T extends string>({ options, value, onChange, label }: { options: { id: T; label: ReactNode }[]; value: T; onChange: (v: T) => void; label?: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex h-8 rounded-md border border-slate-300 bg-white p-0.5 shadow-xs">
+    <div role="radiogroup" aria-label={label} className="inline-flex h-8 max-w-full overflow-x-auto rounded-md border border-slate-300 bg-white p-0.5 shadow-xs">
       {options.map((o) => (
         <button
           key={o.id}
           role="radio"
           aria-checked={value === o.id}
           onClick={() => onChange(o.id)}
-          className={cx("rounded-[4px] px-2.5 text-[13px] font-medium", value === o.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900")}
+          className={cx("shrink-0 whitespace-nowrap rounded-[4px] px-2.5 text-[13px] font-medium", value === o.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900")}
         >
           {o.label}
         </button>

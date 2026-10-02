@@ -31,9 +31,8 @@ export function ImportsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Request lists"
-        title="Imports"
-        meta={<span>Upload a PBC or close checklist as CSV. Each row becomes a request; each person gets one email covering everything they owe.</span>}
+        title="Request lists"
+        meta={<span>Upload a list as CSV. Each row becomes a request, and each person gets one email covering everything they owe.</span>}
       />
       <div className="space-y-6">
         <Card title="Import a request list">

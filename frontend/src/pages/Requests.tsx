@@ -1,19 +1,28 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api, fmtDate, fmtTime, type RequestSummary } from "../api";
-import { Avatar, Badge, Button, Card, Empty, ErrorText, Icon, PageHeader, Progress, RefId, Segmented, StateBadge, Stat, cx, flagLabel, inputBase, inputCls, td, th } from "../components/ui";
+import { api, fmtDate, type RequestSummary } from "../api";
+import { Avatar, Badge, Button, Empty, ErrorText, Icon, PageHeader, Progress, RefId, Segmented, StateBadge, cx, flagLabel, inputBase, inputCls, td, th } from "../components/ui";
 
 type Filter = "open" | "attention" | "overdue" | "all";
 const FILTERS: { id: Filter; label: string }[] = [
-  { id: "open", label: "Open" },
   { id: "attention", label: "Needs you" },
+  { id: "open", label: "Open" },
   { id: "overdue", label: "Overdue" },
   { id: "all", label: "All" },
 ];
 
 const NEEDS_YOU = new Set(["waiting_requester", "ready_to_send", "handed_back"]);
 const DONE = new Set(["complete", "closed_by_provider", "accepted", "cancelled"]);
+/** What needs attention comes first: you, then overdue, then incomplete, then waiting, then closed. */
+function priority(r: RequestSummary) {
+  if (needsYou(r)) return 0;
+  if (DONE.has(r.state)) return 5;
+  if (r.overdue_days > 0) return 1;
+  if (r.state === "needs_more") return 2;
+  return 3;
+}
+
 const needsYou = (r: RequestSummary) => NEEDS_YOU.has(r.state) || r.flags.some((f) => f.blocking);
 
 export function RequestsPage() {
@@ -50,7 +59,7 @@ export function RequestsPage() {
         if (filter === "overdue" && !(r.overdue_days > 0)) return false;
         if (q && !`${r.label} ${r.owners.map((o) => `${o.email} ${o.name}`).join(" ")}`.toLowerCase().includes(q.toLowerCase())) return false;
         return true;
-      }),
+      }).sort((a, b) => priority(a) - priority(b) || (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999")),
     [all, filter, q],
   );
 
@@ -60,64 +69,63 @@ export function RequestsPage() {
         title="Requests"
         meta={list.data && <span>{counts.open} open · {counts.done} closed</span>}
         actions={
-          <>
-            <Link to="/imports">
-              <Button tabIndex={-1}>
-                <Icon name="imports" /> Import list
-              </Button>
-            </Link>
-            <Button variant="primary" onClick={() => setComposing(!composing)} aria-expanded={composing}>
-              <Icon name="plus" /> New request
+          <Link to="/imports">
+            <Button tabIndex={-1}>
+              <Icon name="imports" /> Import a request list
             </Button>
-          </>
+          </Link>
         }
       />
 
-      {composing && (
-        <Card title="New request" className="mb-5" actions={<Button size="sm" variant="ghost" onClick={() => setComposing(false)}>Close</Button>}>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (text.trim()) create.mutate();
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim()) create.mutate();
+        }}
+        className="mb-5 rounded-md border border-slate-200 bg-white p-3 shadow-xs"
+      >
+        <label htmlFor="new-request" className="mb-1.5 block text-[13px] font-semibold text-slate-900">
+          What do you need, and from whom?
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <textarea
+            id="new-request"
+            rows={composing || text ? 3 : 1}
+            onFocus={() => setComposing(true)}
+            className={cx(inputCls, "min-h-[34px] flex-1 resize-none")}
+            placeholder="e.g. Get the signed 2025 MSA and the current certificate of insurance from Jordan Lee (jordan@acme.example) by Oct 17"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim()) create.mutate();
             }}
-            className="space-y-3"
-          >
-            <label className="sr-only" htmlFor="new-request">Describe the request</label>
-            <textarea
-              id="new-request"
-              autoFocus
-              className={cx(inputCls, "min-h-[84px]")}
-              placeholder="What do you need, from whom, and by when? E.g. “Get the signed 2025 MSA and the current certificate of insurance from Jordan Lee (jordan@acme.example) at Acme Logistics by Oct 17.”"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim()) create.mutate();
-              }}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="flex items-center gap-1.5 text-xs text-slate-600">
-                <Icon name="shield" size={14} className="text-slate-500" />
-                The agent drafts a checklist for you to confirm. Nothing is sent until you approve the email.
-              </p>
-              <Button variant="primary" busy={create.isPending} disabled={!text.trim()}>
-                Draft checklist
-              </Button>
-            </div>
-            <ErrorText error={create.error} />
-          </form>
-        </Card>
-      )}
-
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Needs your action" value={counts.attention} tone={counts.attention ? "brand" : "default"} sub="Confirm, send or decide" active={filter === "attention"} onClick={() => setFilter(filter === "attention" ? "open" : "attention")} />
-        <Stat label="Overdue" value={counts.overdue} tone={counts.overdue ? "danger" : "default"} sub="Past the due date" active={filter === "overdue"} onClick={() => setFilter(filter === "overdue" ? "open" : "overdue")} />
-        <Stat label="Open requests" value={counts.open} sub={`${counts.itemsMet} of ${counts.items} items received`} active={filter === "open"} onClick={() => setFilter("open")} />
-        <Stat label="Closed" value={counts.done} tone={counts.done ? "success" : "default"} sub="Complete, accepted or closed" active={filter === "all"} onClick={() => setFilter("all")} />
-      </div>
+          />
+          <Button variant="primary" className="h-[34px]" busy={create.isPending} disabled={!text.trim()}>
+            Start request
+          </Button>
+        </div>
+        {(composing || text) && <p className="mt-1.5 text-xs text-slate-600">The agent drafts a checklist for you to confirm. Nothing is sent until you approve the email.</p>}
+        <ErrorText error={create.error} />
+      </form>
 
       <div className="rounded-md border border-slate-200 bg-white shadow-xs">
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-2.5">
-          <Segmented label="Filter requests" options={FILTERS.map((f) => ({ id: f.id, label: f.label }))} value={filter} onChange={setFilter} />
+          <Segmented
+            label="Filter requests"
+            options={FILTERS.map((f) => ({
+              id: f.id,
+              label: (
+                <span className="inline-flex items-center gap-1.5">
+                  {f.label}
+                  <span className={cx("tabular-nums", filter === f.id ? "text-white/70" : f.id === "attention" && counts.attention ? "font-semibold text-brand-700" : f.id === "overdue" && counts.overdue ? "font-semibold text-red-700" : "text-slate-500")}>
+                    {{ open: counts.open, attention: counts.attention, overdue: counts.overdue, all: all.length }[f.id]}
+                  </span>
+                </span>
+              ),
+            }))}
+            value={filter}
+            onChange={setFilter}
+          />
           <div className="relative w-full max-w-xs">
             <Icon name="search" className="pointer-events-none absolute left-2.5 top-2 text-slate-400" />
             <input aria-label="Search requests or people" className={cx(inputBase, "w-full pl-8")} placeholder="Search requests or people" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -137,11 +145,10 @@ export function RequestsPage() {
               <thead className="border-b border-slate-200 bg-slate-50/70">
                 <tr>
                   <th className={th}>Request</th>
-                  <th className={th}>Provider</th>
+                  <th className={th}>From</th>
                   <th className={th}>Status</th>
                   <th className={th}>Received</th>
                   <th className={th}>Due</th>
-                  <th className={cx(th, "hidden xl:table-cell")}>Last activity</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -180,7 +187,6 @@ export function RequestsPage() {
                     <td className={cx(td, "whitespace-nowrap")}>
                       <Due r={r} />
                     </td>
-                    <td className={cx(td, "hidden whitespace-nowrap text-slate-500 xl:table-cell")}>{fmtTime(r.updated_at)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -39,9 +39,8 @@ export function InboxPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Mail"
-        title="Inbox"
-        meta={<span>Replies that couldn't be matched to a request safely wait here. Mail is never assigned by sender address alone.</span>}
+        title="Unmatched email"
+        meta={<span>Replies that couldn't be matched to a request wait here for you to assign.</span>}
       />
       <div className="mb-4">
         <Tabs
