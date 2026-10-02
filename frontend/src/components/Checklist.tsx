@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { Citation, EvidenceFile, Item, Subpoint, Verdict } from "../api";
-import { Badge, Button, Disclosure, VERDICT, VerdictBadge, cx, inputCls } from "./ui";
+import { Badge, Button, Disclosure, Icon, VERDICT, VerdictBadge, cx, inputCls } from "./ui";
 
 // --------------------------------------------------------------------------- read-only view
 
@@ -18,9 +18,24 @@ export function criteriaLines(c: Record<string, any>): string[] {
   return out;
 }
 
+export function criteriaFields(c: Record<string, any>): [string, string][] {
+  const out: [string, string][] = [];
+  if (c.period) out.push(["Period", c.period]);
+  if (c.entity) out.push(["Entity", c.entity]);
+  if (c.format) out.push(["Format", c.format]);
+  if (c.signature?.required) {
+    const s = c.signature;
+    out.push(["Signature", s.mode === "named_parties" && s.parties?.length ? `Signed by ${s.parties.join(" and ")}${s.date_required ? ", dated" : ""}` : `Signed${s.date_required ? " and dated" : ""}`]);
+  }
+  if (c.currency_rule) out.push(["Currency", c.currency_rule]);
+  return out;
+}
+
+const RAIL: Record<string, string> = { green: "before:bg-emerald-500", red: "before:bg-red-500", amber: "before:bg-amber-500", violet: "before:bg-violet-500", slate: "before:bg-slate-300", blue: "before:bg-brand-500" };
+
 export function ChecklistView({ items, files, onOverride }: { items: Item[]; files?: EvidenceFile[]; onOverride?: (item: Item) => void }) {
   return (
-    <ol className="space-y-3">
+    <ol className="divide-y divide-slate-200">
       {items.map((it, n) => (
         <ItemRow key={it.key} n={n + 1} item={it} files={files} onOverride={onOverride} />
       ))}
@@ -30,48 +45,58 @@ export function ChecklistView({ items, files, onOverride }: { items: Item[]; fil
 
 function ItemRow({ n, item, files, onOverride }: { n: number; item: Item; files?: EvidenceFile[]; onOverride?: (item: Item) => void }) {
   const v = item.verdict;
-  const crit = criteriaLines(item.criteria);
-  const tone = v ? VERDICT[v.verdict]?.tone : undefined;
+  const crit = criteriaFields(item.criteria);
+  const must = (item.criteria.required_elements as string[] | undefined) ?? [];
+  const tone = v ? (VERDICT[v.verdict]?.tone ?? "slate") : "slate";
   return (
-    <li className={cx("rounded-md border p-3", tone === "green" ? "border-emerald-200 bg-emerald-50/40" : tone === "red" ? "border-red-200" : tone === "amber" ? "border-amber-200" : "border-slate-200")}>
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 w-5 shrink-0 text-right text-xs font-semibold text-slate-400">{n}.</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <p className="text-sm font-medium text-slate-800">
-              {item.description}
-              {item.kind === "answer" && (
-                <Badge tone="violet" className="ml-2 align-middle">
-                  answer
-                </Badge>
-              )}
-            </p>
-            {v && (
-              <div className="flex items-center gap-1.5">
-                {v.source === "requester_override" && <Badge tone="slate" title={v.override_reason}>overridden</Badge>}
-                <VerdictBadge verdict={v.verdict} />
-              </div>
-            )}
-          </div>
-          {crit.length > 0 && <p className="mt-1 text-xs text-slate-500">{crit.join(" · ")}</p>}
-          {item.subpoints.length > 0 && !v && (
-            <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs text-slate-600">
-              {item.subpoints.map((sp) => (
-                <li key={sp.key}>
-                  {sp.text}
-                  {sp.condition && <span className="text-slate-400"> ({sp.condition})</span>}
-                </li>
-              ))}
-            </ul>
+    <li className={cx("relative py-3.5 pl-4 pr-1 before:absolute before:inset-y-3.5 before:left-0 before:w-[3px] before:rounded-full", RAIL[tone])}>
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
+        <p className="min-w-0 flex-1 text-[13.5px] font-medium leading-snug text-slate-900">
+          <span className="mr-1.5 tabular-nums text-slate-500">{n}.</span>
+          {item.description}
+        </p>
+        <div className="flex items-center gap-1.5">
+          <Badge tone="slate">{item.kind === "answer" ? "Answer" : "Document"}</Badge>
+          {v?.source === "requester_override" && (
+            <Badge tone="blue" title={v.override_reason}>
+              Overridden
+            </Badge>
           )}
-          {v && v.verdict !== "pending" && <VerdictDetail item={item} v={v} files={files} />}
-          {v && onOverride && v.verdict !== "pending" && (
-            <button onClick={() => onOverride(item)} className="mt-2 text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">
-              Override verdict…
-            </button>
-          )}
+          {v && <VerdictBadge verdict={v.verdict} />}
         </div>
       </div>
+      {(crit.length > 0 || must.length > 0) && (
+        <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
+          {crit.map(([k, val]) => (
+            <Fragment key={k}>
+              <dt className="text-slate-500">{k}</dt>
+              <dd className="text-slate-700">{val}</dd>
+            </Fragment>
+          ))}
+          {must.length > 0 && (
+            <>
+              <dt className="text-slate-500">Must show</dt>
+              <dd className="text-slate-700">{must.join("; ")}</dd>
+            </>
+          )}
+        </dl>
+      )}
+      {item.subpoints.length > 0 && !v && (
+        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-slate-700">
+          {item.subpoints.map((sp) => (
+            <li key={sp.key}>
+              {sp.text}
+              {sp.condition && <span className="text-slate-500"> ({sp.condition})</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {v && v.verdict !== "pending" && <VerdictDetail item={item} v={v} files={files} />}
+      {v && onOverride && v.verdict !== "pending" && (
+        <button onClick={() => onOverride(item)} className="mt-2 text-xs font-medium text-slate-500 hover:text-brand-700">
+          Override verdict…
+        </button>
+      )}
     </li>
   );
 }
@@ -79,53 +104,105 @@ function ItemRow({ n, item, files, onOverride }: { n: number; item: Item; files?
 function VerdictDetail({ item, v, files }: { item: Item; v: Verdict; files?: EvidenceFile[] }) {
   const cites = v.citations ?? [];
   return (
-    <div className="mt-2 space-y-2">
-      {v.rationale && <p className="text-xs text-slate-600">{v.rationale}</p>}
+    <div className="mt-2.5 space-y-2.5">
+      {v.rationale && <p className="text-[13px] leading-relaxed text-slate-700">{v.rationale}</p>}
       {v.source === "requester_override" && v.override_reason && <p className="text-xs text-slate-600">Override reason: {v.override_reason}</p>}
       {v.missing?.length > 0 && v.verdict !== "met" && (
-        <ul className="space-y-0.5 text-xs text-red-700">
-          {v.missing.map((m, i) => (
-            <li key={i}>• {m}</li>
-          ))}
-        </ul>
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+          <p className="mb-0.5 font-semibold">Still needed</p>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {v.missing.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+        </div>
       )}
       {v.review_flags?.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {v.review_flags.map((f) => (
-            <Badge key={f} tone="amber">
-              review: {f.replace(/_/g, " ")}
+            <Badge key={f} tone="amber" title="Code-side check on the agent's verdict">
+              Review: {f.replace(/_/g, " ")}
             </Badge>
           ))}
         </div>
       )}
       {item.subpoints.length > 0 && (
-        <ul className="space-y-1.5">
+        <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
           {item.subpoints.map((sp) => {
             const sv = v.subpoints?.find((x) => x.key === sp.key);
             return (
-              <li key={sp.key} className="rounded bg-slate-50 px-2 py-1.5 text-xs">
+              <li key={sp.key} className="px-3 py-2 text-xs">
                 <div className="flex items-start justify-between gap-2">
-                  <span>
+                  <span className="text-slate-800">
                     {sp.text}
-                    {sp.condition && <span className="text-slate-400"> ({sp.condition})</span>}
+                    {sp.condition && <span className="text-slate-500"> ({sp.condition})</span>}
                   </span>
                   <VerdictBadge verdict={sv?.verdict ?? "pending"} />
                 </div>
-                {sv?.note && <p className="mt-0.5 text-slate-500">{sv.note}</p>}
-                {sv?.citations?.map((c, i) => <CitationView key={i} c={c} files={files} />)}
+                {sv?.note && <p className="mt-0.5 text-slate-600">{sv.note}</p>}
+                {sv?.citations?.length ? <Evidence cites={sv.citations} files={files} /> : null}
               </li>
             );
           })}
         </ul>
       )}
-      {cites.length > 0 && (
-        <Disclosure summary={`${cites.length} citation${cites.length > 1 ? "s" : ""}`} defaultOpen={v.verdict !== "met"}>
-          <div className="space-y-1.5">
-            {cites.map((c, i) => (
-              <CitationView key={i} c={c} files={files} />
-            ))}
-          </div>
-        </Disclosure>
+      {cites.length > 0 && <Evidence cites={cites} files={files} open={v.verdict !== "met"} />}
+    </div>
+  );
+}
+
+/** Citations grouped by file, so one file cited on five pages reads as one source. */
+function Evidence({ cites, files, open }: { cites: Citation[]; files?: EvidenceFile[]; open?: boolean }) {
+  const groups = new Map<string, Citation[]>();
+  for (const c of cites) {
+    const k = String(c.file_id ?? c.evidence_id);
+    const seen = groups.get(k) ?? [];
+    if (!seen.some((x) => x.location === c.location && x.quote === c.quote)) seen.push(c);
+    groups.set(k, seen);
+  }
+  return (
+    <div className="mt-1.5 space-y-1.5">
+      {[...groups.values()].map((g) => (
+        <SourceRow key={String(g[0]!.file_id ?? g[0]!.evidence_id)} cites={g} files={files} defaultOpen={open} />
+      ))}
+    </div>
+  );
+}
+
+function SourceRow({ cites, files, defaultOpen }: { cites: Citation[]; files?: EvidenceFile[]; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  const c0 = cites[0]!;
+  const locs = [...new Set(cites.map((c) => c.location).filter(Boolean))];
+  const problem = cites.find((c) => c.problem)?.problem;
+  const verified = cites.some((c) => c.verified);
+  const visual = cites.some((c) => c.visual && !c.problem);
+  return (
+    <div className={cx("rounded-md border text-xs", problem && !verified ? "border-red-200 bg-red-50/40" : "border-slate-200 bg-slate-50/60")}>
+      <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-1.5 text-left">
+        <Icon name="chevronRight" size={13} className={cx("text-slate-500 transition-transform", open && "rotate-90")} />
+        <Icon name={c0.file_id && files?.find((f) => f.id === c0.file_id)?.kind === "text" ? "mail" : "file"} size={14} className="text-slate-500" />
+        <span className="min-w-0 truncate font-medium text-slate-800">{c0.filename ?? c0.evidence_id}</span>
+        {locs.length > 0 && <span className="text-slate-500">{locs.join(", ")}</span>}
+        <span className="ml-auto">
+          {verified ? (
+            <Badge tone="green" title="The quoted text was found at the cited location">
+              <Icon name="check" size={11} /> Quote verified
+            </Badge>
+          ) : visual ? (
+            <Badge tone="blue" title="Based on the page image, not on quoted text">
+              Visual evidence
+            </Badge>
+          ) : (
+            <Badge tone="red">{problem ?? "Unverified"}</Badge>
+          )}
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-1.5 border-t border-slate-200 px-2.5 py-2">
+          {cites.map((c, i) => (
+            <CitationView key={i} c={c} files={files} />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -136,32 +213,20 @@ export function CitationView({ c, files }: { c: Citation; files?: EvidenceFile[]
   const img = f?.images.find((im) => im.label === c.location);
   const [zoom, setZoom] = useState(false);
   return (
-    <div className={cx("mt-1 rounded border px-2 py-1.5 text-xs", c.problem ? "border-red-200 bg-red-50/50" : "border-slate-200 bg-white")}>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {c.file_id ? (
-          <a className="font-medium text-brand-700 hover:underline" href={`/api/files/${c.file_id}/download`}>
-            {c.filename}
+    <div className="text-xs">
+      <div className="flex flex-wrap items-center gap-1.5 text-slate-500">
+        <span className="font-medium text-slate-700">{c.location || "Message"}</span>
+        {c.problem && <span className="text-red-700">· {c.problem}</span>}
+        {c.file_id && (
+          <a className="ml-auto font-medium text-brand-700 hover:underline" href={`/api/files/${c.file_id}/download`}>
+            Download
           </a>
-        ) : (
-          <span className="font-medium">{c.filename ?? c.evidence_id}</span>
-        )}
-        {c.location && <span className="text-slate-500">{c.location}</span>}
-        {c.verified ? (
-          <Badge tone="green" title="The quote was found at this location in the extracted text">
-            quote verified
-          </Badge>
-        ) : c.visual && !c.problem ? (
-          <Badge tone="blue" title="Based on the page image, not on quoted text">
-            visual evidence
-          </Badge>
-        ) : (
-          <Badge tone="red">{c.problem ?? "unverified"}</Badge>
         )}
       </div>
-      {c.quote && <blockquote className="mt-1 border-l-2 border-slate-300 pl-2 text-slate-700">“{c.quote}”</blockquote>}
-      {c.note && <p className="mt-1 text-slate-500">{c.note}</p>}
+      {c.quote && <blockquote className="mt-1 whitespace-pre-line border-l-2 border-brand-200 bg-white px-2 py-1 font-mono text-[11.5px] leading-relaxed text-slate-800">{c.quote}</blockquote>}
+      {c.note && <p className="mt-1 text-slate-600">{c.note}</p>}
       {img && (
-        <button onClick={() => setZoom(!zoom)} className="mt-1.5 block">
+        <button onClick={() => setZoom(!zoom)} className="mt-1.5 block" aria-label={zoom ? "Shrink page image" : "Enlarge page image"}>
           <img src={`/api/files/${f!.id}/images/${img.index}`} alt={`${f!.filename} ${img.label}`} className={cx("rounded border border-slate-200", zoom ? "max-w-full" : "max-h-40")} />
         </button>
       )}

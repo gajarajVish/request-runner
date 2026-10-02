@@ -1,14 +1,63 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
 
+/* Design tokens. Pages use Tailwind's slate scale for neutrals, `brand` for the one accent,
+   `ink` for app chrome, and emerald/amber/red/violet only for status semantics. */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #dbe6fe;
-  --color-brand-500: #3b6cf6;
-  --color-brand-600: #2a56d9;
-  --color-brand-700: #2344ad;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --color-brand-50: #eff4ff;
+  --color-brand-100: #dbe5ff;
+  --color-brand-200: #bfd0fe;
+  --color-brand-500: #3563e9;
+  --color-brand-600: #2350d4;
+  --color-brand-700: #1c40ac;
+  --color-brand-800: #1a3687;
+  --color-brand-900: #172f6b;
+
+  --color-ink-950: #0a1020;
+  --color-ink-900: #0f172a;
+  --color-ink-800: #1a2438;
+  --color-ink-700: #27334d;
+  --color-ink-500: #7f8ba4;
+  --color-ink-300: #a7b1c6;
+  --color-ink-200: #cdd4e1;
+
+  --color-canvas: #f4f6f9;
+  /* WCAG AA: slate-500 darkened so secondary text passes 4.5:1 on white and on canvas;
+     `field` is the input border, 3:1 against white (1.4.11) */
+  --color-slate-500: #5a6a80;
+  --color-field: #868fa0;
+
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-pop: 0 8px 24px -6px rgb(15 23 42 / 0.18), 0 2px 6px -2px rgb(15 23 42 / 0.08);
 }
 
-html, body, #root { height: 100%; }
-body { @apply bg-slate-50 text-slate-800 antialiased; }
-pre.mail { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.5; }
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  @apply bg-canvas text-[13.5px] text-slate-800 antialiased;
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+table {
+  font-variant-numeric: tabular-nums;
+}
+pre.mail {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+}

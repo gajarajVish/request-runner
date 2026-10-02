@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, bytes, fmtDate, fmtTime, type Comment, type EvidenceFile, type Item, type RequestDetail, type Version } from "../api";
 import { ChecklistEditor, ChecklistView, toDraft, type DraftItem } from "../components/Checklist";
 import { DraftEditor, InboundView, OutboundView } from "../components/Mail";
-import { Badge, Button, Card, Empty, ErrorText, Field, FlagList, Modal, StateBadge, Tabs, VerdictBadge, cx, inputCls } from "../components/ui";
+import { Avatar, Badge, Button, Card, Disclosure, Empty, ErrorText, Field, FlagList, Icon, type IconName, Menu, Modal, Progress, RefId, Segmented, Spinner, StateBadge, Tabs, VerdictBadge, cx, inputCls } from "../components/ui";
 
 const OPEN_WITH_PROVIDER = new Set(["waiting_provider", "checking", "needs_more", "handed_back"]);
 const TERMINAL = new Set(["complete", "closed_by_provider", "accepted", "cancelled"]);
@@ -21,58 +21,92 @@ export function RequestPage() {
   const checking = r.state === "checking" || r.checks.some((c) => c.status === "pending" || c.status === "checking");
 
   return (
-    <div className="space-y-5">
+    <div>
       <Header r={r} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,1fr)]">
+        <section className="min-w-0 rounded-md border border-slate-200 bg-white shadow-xs">
+          <div className="px-4">
+            <Tabs
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { id: "checklist", label: <TabLabel text="Checklist" n={r.total ? `${r.met}/${r.total}` : undefined} /> },
+                { id: "files", label: <TabLabel text="Evidence" n={r.files.filter((f) => !f.parent_file_id).length} /> },
+                { id: "email", label: <TabLabel text="Email" n={r.messages.filter((m) => m.status !== "draft").length + r.inbound.length} /> },
+                { id: "audit", label: <TabLabel text="Audit log" n={r.audit.length} /> },
+              ]}
+            />
+          </div>
+          <div className="p-4">
+            {tab === "checklist" && (
+              <div className="space-y-4">
+                {checking && (
+                  <div className="flex items-center gap-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-[13px] text-violet-900">
+                    <Spinner /> Checking what was received…
+                  </div>
+                )}
+                <LatestSuspicious r={r} />
+                {r.current_version ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                      <span>
+                        Confirmed checklist <span className="font-medium text-slate-700">v{r.current_version.number}</span>
+                        {r.current_version.confirmed_at && ` · ${fmtTime(r.current_version.confirmed_at)}`}
+                      </span>
+                      <span>Sent to {r.current_version.provider_email}</span>
+                    </div>
+                    <ChecklistView items={r.current_version.items} files={r.files} onOverride={OPEN_WITH_PROVIDER.has(r.state) ? setOverride : undefined} />
+                  </>
+                ) : r.proposed_version ? (
+                  <>
+                    <p className="text-xs text-slate-500">
+                      Proposed checklist <span className="font-medium text-slate-700">v{r.proposed_version.number}</span> · review and confirm it in the activity panel
+                    </p>
+                    <ChecklistView items={r.proposed_version.items} />
+                    {r.proposed_version.items.length === 0 && <Empty>No items yet. Answer the agent's questions in the activity panel.</Empty>}
+                  </>
+                ) : (
+                  <Empty icon="sparkle">The agent is drafting a checklist…</Empty>
+                )}
+                {r.current_version && r.proposed_version && (
+                  <p className="rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-900">
+                    A revised checklist (v{r.proposed_version.number}) is waiting for your confirmation in the activity panel.
+                  </p>
+                )}
+                <Questions r={r} />
+              </div>
+            )}
+            {tab === "files" && <Files files={r.files} />}
+            {tab === "email" && <Emails r={r} />}
+            {tab === "audit" && <Audit r={r} />}
+          </div>
+        </section>
         <Thread r={r} />
-        <div className="space-y-4">
-          <Tabs
-            value={tab}
-            onChange={setTab}
-            tabs={[
-              { id: "checklist", label: `Checklist${r.total ? ` ${r.met}/${r.total}` : ""}` },
-              { id: "files", label: `Files (${r.files.filter((f) => !f.parent_file_id).length})` },
-              { id: "email", label: `Email (${r.messages.filter((m) => m.status !== "draft").length + r.inbound.length})` },
-              { id: "audit", label: "Audit log" },
-            ]}
-          />
-          {tab === "checklist" && (
-            <div className="space-y-4">
-              {checking && (
-                <div className="flex items-center gap-2 rounded-md bg-violet-50 px-3 py-2 text-sm text-violet-800">
-                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-r-transparent" /> Checking what was received…
-                </div>
-              )}
-              <LatestSuspicious r={r} />
-              {r.current_version ? (
-                <Card title={`Confirmed checklist v${r.current_version.number}`} actions={<span className="text-xs text-slate-500">{r.current_version.provider_email}</span>}>
-                  <ChecklistView items={r.current_version.items} files={r.files} onOverride={OPEN_WITH_PROVIDER.has(r.state) ? setOverride : undefined} />
-                </Card>
-              ) : r.proposed_version ? (
-                <Card title={`Proposed checklist v${r.proposed_version.number}`}>
-                  <ChecklistView items={r.proposed_version.items} />
-                  {r.proposed_version.items.length === 0 && <Empty>No items yet. Answer the agent's questions in the thread.</Empty>}
-                </Card>
-              ) : (
-                <Empty>The agent is drafting a checklist…</Empty>
-              )}
-              {r.current_version && r.proposed_version && (
-                <p className="text-xs text-amber-700">A revised checklist (v{r.proposed_version.number}) is waiting for your confirmation in the thread.</p>
-              )}
-              <Questions r={r} />
-            </div>
-          )}
-          {tab === "files" && <Files files={r.files} />}
-          {tab === "email" && <Emails r={r} />}
-          {tab === "audit" && <Audit r={r} />}
-        </div>
       </div>
       <OverrideModal r={r} item={override} onClose={() => setOverride(null)} />
     </div>
   );
 }
 
+function TabLabel({ text, n }: { text: string; n?: number | string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {text}
+      {n !== undefined && <span className="rounded bg-slate-100 px-1.5 text-2xs font-semibold tabular-nums text-slate-600">{n}</span>}
+    </span>
+  );
+}
+
 // --------------------------------------------------------------------------- header & actions
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0 px-4 py-2.5">
+      <dt className="text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</dt>
+      <dd className="mt-1 text-[13px] text-slate-800">{children}</dd>
+    </div>
+  );
+}
 
 function Header({ r }: { r: RequestDetail }) {
   const qc = useQueryClient();
@@ -89,104 +123,131 @@ function Header({ r }: { r: RequestDetail }) {
   });
   const open = OPEN_WITH_PROVIDER.has(r.state);
   return (
-    <div className="space-y-3">
+    <div className="mb-5 space-y-4">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-slate-500">
+        <Link to="/" className="hover:text-slate-800">
+          Requests
+        </Link>
+        <Icon name="chevronRight" size={12} />
+        <span className="text-slate-700">{r.external_id ?? `#${r.id}`}</span>
+      </nav>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link to="/" className="text-xs text-slate-500 hover:text-slate-700">
-            ← Requests
-          </Link>
-          <h1 className="mt-1 text-xl font-semibold text-slate-900">
-            {r.external_id && <span className="mr-2 font-mono text-base text-slate-500">{r.external_id}</span>}
+        <div className="min-w-0">
+          <h1 className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[20px] font-semibold tracking-tight text-slate-900">
+            {r.external_id && <RefId className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[13px]">{r.external_id}</RefId>}
             {r.title}
-          </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
             <StateBadge state={r.state} label={r.state_label} />
-            {r.owners.length > 0 && (
-              <span>
-                From{" "}
-                {r.owners.map((o, i) => (
-                  <span key={o.provider_id}>
-                    {i > 0 && (r.ownership_mode === "all" ? " and " : " or ")}
-                    <span className="font-medium text-slate-800">{o.name || o.email}</span>
-                    {o.name && <span className="text-slate-400"> &lt;{o.email}&gt;</span>}
-                    {o.closed_at && <Badge className="ml-1">said that's all</Badge>}
-                  </span>
-                ))}
-              </span>
-            )}
-            {r.due_date && <span className={r.overdue_days ? "font-medium text-red-700" : ""}>Due {fmtDate(r.due_date)}{r.overdue_days ? ` (${r.overdue_days} days overdue)` : ""}</span>}
-            {open && (
-              <span title="Automatic contacts (reminders, follow-ups, overdue and change notices) used, out of the limit">
-                Follow-ups {r.auto_contact_count}/{r.max_auto_contacts}
-              </span>
-            )}
-            {r.backup_email && <span className="text-slate-500">Backup: {r.backup_email}</span>}
-            {r.aliases.length > 0 && <span className="text-slate-500">Also: {r.aliases.join(", ")}</span>}
-          </div>
+          </h1>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {r.state === "handed_back" && (
-            <Button onClick={() => act.mutate({ path: "resume" })} title="Keep waiting without further automatic follow-ups">
+            <Button variant="primary" onClick={() => act.mutate({ path: "resume" })} title="Keep waiting without further automatic follow-ups">
               Keep waiting
             </Button>
           )}
           {open && (
             <>
-              <Button onClick={() => act.mutate({ path: "manual-followup" })} busy={act.isPending && act.variables?.path === "manual-followup"} title="Send a follow-up now (doesn't use the automatic limit)">
-                Follow up now
-              </Button>
               <Button onClick={() => act.mutate({ path: "recheck" })} busy={act.isPending && act.variables?.path === "recheck"}>
-                Re-check
+                <Icon name="refresh" /> Re-check
               </Button>
-              <Button onClick={() => setModal("accept")}>Accept as is</Button>
+              <Button
+                variant={r.state === "handed_back" ? "secondary" : "primary"}
+                onClick={() => act.mutate({ path: "manual-followup" })}
+                busy={act.isPending && act.variables?.path === "manual-followup"}
+                title="Send a follow-up now (doesn't use the automatic limit)"
+              >
+                <Icon name="send" /> Follow up now
+              </Button>
             </>
           )}
-          {!TERMINAL.has(r.state) && (
-            <>
-              <Button onClick={() => setModal("due")}>Due date</Button>
-              <Button variant="danger" onClick={() => setModal("cancel")}>
-                Cancel
-              </Button>
-            </>
-          )}
+          <Menu
+            items={[
+              open && { label: "Accept as is", hint: "Close with what was received", onClick: () => setModal("accept") },
+              !TERMINAL.has(r.state) && { label: "Change due date", onClick: () => setModal("due") },
+              !TERMINAL.has(r.state) && { label: "Cancel request", danger: true, onClick: () => setModal("cancel") },
+            ]}
+          />
         </div>
       </div>
+      <dl className="grid grid-cols-2 divide-slate-200 rounded-md border border-slate-200 bg-white shadow-xs sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
+        <Fact label={r.owners.length > 1 ? (r.ownership_mode === "all" ? "Providers (all must respond)" : "Providers (any one)") : "Provider"}>
+          {r.owners.length ? (
+            <div className="space-y-1">
+              {r.owners.map((o) => (
+                <div key={o.provider_id} className="flex min-w-0 items-center gap-2">
+                  <Avatar name={o.name || o.email} className="h-6 w-6" />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{o.name || o.email}</span>
+                    {o.name && <span className="block truncate text-xs text-slate-500">{o.email}</span>}
+                  </span>
+                  {o.closed_at && <Badge>Said that's all</Badge>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="text-slate-400">Not set</span>
+          )}
+        </Fact>
+        <Fact label="Due">
+          {r.due_date ? (
+            <span className={cx("inline-flex items-center gap-1.5", r.overdue_days ? "font-medium text-red-700" : "")}>
+              {fmtDate(r.due_date)}
+              {r.overdue_days > 0 && <Badge tone="red">{r.overdue_days}d overdue</Badge>}
+            </span>
+          ) : (
+            <span className="text-slate-400">None</span>
+          )}
+        </Fact>
+        <Fact label="Items received">{r.total ? <Progress value={r.met} total={r.total} /> : <span className="text-slate-400">—</span>}</Fact>
+        <Fact label="Automatic follow-ups">
+          <span title="Automatic contacts (reminders, follow-ups, overdue and change notices) used, out of the limit" className="tabular-nums">
+            {r.auto_contact_count} of {r.max_auto_contacts} used
+          </span>
+        </Fact>
+        <Fact label="Escalates to">{r.backup_email ? <span className="block truncate">{r.backup_email}</span> : <span className="text-slate-400">No backup owner</span>}</Fact>
+      </dl>
       {r.dependencies.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-          Depends on:
+          Depends on
           {r.dependencies.map((d) => (
-            <Link key={d.id} to={`/requests/${d.id}`} className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 hover:bg-slate-200">
+            <Link key={d.id} to={`/requests/${d.id}`} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 hover:border-slate-300">
               {d.label} <StateBadge state={d.state} />
             </Link>
           ))}
         </div>
       )}
+      {r.aliases.length > 0 && <p className="text-xs text-slate-500">Also known as: {r.aliases.join(", ")}</p>}
       <FlagList flags={r.flags} />
       <ErrorText error={act.error} />
-      <Modal open={modal === "cancel" || modal === "accept"} onClose={() => setModal(null)} title={modal === "cancel" ? "Cancel this request" : "Accept what was received"}>
-        <div className="space-y-3">
-          <p className="text-sm text-slate-600">{modal === "cancel" ? (open ? "The provider will be told they can stop working on it." : "Nothing has been sent yet.") : "The request is closed as accepted. No more follow-ups are sent."}</p>
+      <Modal open={modal === "cancel" || modal === "accept"} onClose={() => setModal(null)} title={modal === "cancel" ? "Cancel this request?" : "Accept what was received?"}>
+        <div className="space-y-4">
+          <p className="text-[13px] text-slate-700">{modal === "cancel" ? (open ? "The provider will be told they can stop working on it." : "Nothing has been sent yet.") : "The request closes as accepted. No more follow-ups are sent."}</p>
           <Field label="Reason (recorded in the audit log)">
             <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} />
           </Field>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setModal(null)}>
-              Back
+              Keep request
             </Button>
             <Button variant={modal === "cancel" ? "danger" : "primary"} busy={act.isPending} onClick={() => act.mutate({ path: modal!, body: { reason } })}>
-              {modal === "cancel" ? "Cancel request" : "Accept"}
+              {modal === "cancel" ? "Cancel request" : "Accept and close"}
             </Button>
           </div>
           <ErrorText error={act.error} />
         </div>
       </Modal>
       <Modal open={modal === "due"} onClose={() => setModal(null)} title="Change the due date">
-        <div className="space-y-3">
-          <input type="date" className={inputCls} value={due} onChange={(e) => setDue(e.target.value)} />
-          {open && <p className="text-xs text-slate-500">The provider gets one change notice. Reminders and overdue notices restart from the new date.</p>}
-          <div className="flex justify-end">
+        <div className="space-y-4">
+          <Field label="New due date">
+            <input type="date" className={inputCls} value={due} onChange={(e) => setDue(e.target.value)} />
+          </Field>
+          {open && <p className="text-xs text-slate-600">The provider gets one change notice. Reminders and overdue notices restart from the new date.</p>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setModal(null)}>
+              Back
+            </Button>
             <Button variant="primary" disabled={!due} busy={act.isPending} onClick={() => act.mutate({ path: "due-date", body: { due_date: due } })}>
-              Save
+              Save due date
             </Button>
           </div>
           <ErrorText error={act.error} />
@@ -245,7 +306,7 @@ function Thread({ r }: { r: RequestDetail }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"chat" | "change">("chat");
-  const end = useRef<HTMLDivElement>(null);
+  const end = useRef<HTMLLIElement>(null);
   const sent = OPEN_WITH_PROVIDER.has(r.state);
   const post = useMutation({
     mutationFn: () => (sent && mode === "chat" ? api.post(`/api/requests/${r.id}/chat`, { text }) : api.post(`/api/requests/${r.id}/comments`, { text })),
@@ -261,36 +322,42 @@ function Thread({ r }: { r: RequestDetail }) {
       ? "Add a note"
       : "Reply to the agent: answer its questions or change the checklist"
     : mode === "chat"
-      ? "Ask about this request (e.g. “what's still missing?”). This won't change what's requested."
-      : "Describe the change to what's requested. You'll confirm a new checklist version before anything is sent.";
+      ? "Ask about this request, e.g. “What's still missing?” This doesn't change what's requested."
+      : "Describe the change. You'll confirm a new checklist version before anything is sent.";
 
   return (
-    <Card title="Thread" className="flex flex-col">
-      <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+    <section className="flex flex-col rounded-md border border-slate-200 bg-white shadow-xs xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)]">
+      <header className="flex min-h-10 items-center justify-between border-b border-slate-200 px-4 py-2">
+        <h2 className="text-[13px] font-semibold text-slate-900">Activity</h2>
+        <span className="text-xs text-slate-500">{r.comments.length} events</span>
+      </header>
+      <ol className="min-h-0 flex-1 space-y-0 overflow-y-auto px-4 py-3 max-xl:max-h-[70vh]">
         {r.comments.map((c) => (
           <CommentView key={c.id} c={c} r={r} isLatestProposal={c.id === latestProposalId} />
         ))}
-        <div ref={end} />
-      </div>
+        <li ref={end} aria-hidden className="list-none" />
+      </ol>
       <form
-        className="mt-4 space-y-2 border-t border-slate-100 pt-3"
+        className="space-y-2 border-t border-slate-200 bg-slate-50/60 p-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (text.trim()) post.mutate();
         }}
       >
         {sent && (
-          <div className="flex gap-1 text-xs">
-            <button type="button" onClick={() => setMode("chat")} className={cx("rounded px-2 py-1", mode === "chat" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600")}>
-              Ask the agent
-            </button>
-            <button type="button" onClick={() => setMode("change")} className={cx("rounded px-2 py-1", mode === "change" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600")}>
-              Change what's requested
-            </button>
-          </div>
+          <Segmented
+            label="Message type"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { id: "chat", label: "Ask the agent" },
+              { id: "change", label: "Change what's requested" },
+            ]}
+          />
         )}
         <textarea
-          className={cx(inputCls, "min-h-[70px]")}
+          aria-label="Message"
+          className={cx(inputCls, "min-h-[64px]")}
           placeholder={placeholder}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -298,26 +365,56 @@ function Thread({ r }: { r: RequestDetail }) {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim()) post.mutate();
           }}
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <span className="text-2xs text-slate-500">⌘ Enter to send</span>
           <Button variant="primary" size="sm" busy={post.isPending} disabled={!text.trim()}>
             Send
           </Button>
         </div>
         <ErrorText error={post.error} />
       </form>
-    </Card>
+    </section>
   );
 }
 
+const WHO_ICON: Record<string, { icon: IconName; cls: string }> = {
+  me: { icon: "user", cls: "bg-brand-600 text-white" },
+  agent: { icon: "sparkle", cls: "bg-violet-100 text-violet-700" },
+  provider: { icon: "mail", cls: "bg-amber-100 text-amber-800" },
+  system: { icon: "shield", cls: "bg-slate-100 text-slate-600" },
+};
+
 function Bubble({ who, tone, at, children }: { who: string; tone: "me" | "agent" | "provider" | "system"; at: string; children: React.ReactNode }) {
-  const cls = { me: "bg-brand-50 border-brand-100", agent: "bg-white border-slate-200", provider: "bg-amber-50/60 border-amber-200", system: "bg-slate-50 border-slate-200" }[tone];
+  const w = WHO_ICON[tone]!;
   return (
-    <div className={cx("rounded-lg border px-3 py-2", cls, tone === "me" && "ml-8")}>
-      <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
-        <span className="font-semibold uppercase tracking-wide">{who}</span>
-        <span>{fmtTime(at)}</span>
+    <li className="relative flex gap-3 pb-4 before:absolute before:bottom-0 before:left-[13px] before:top-8 before:w-px before:bg-slate-200 last-of-type:before:hidden">
+      <span className={cx("relative z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full ring-4 ring-white", w.cls)}>
+        <Icon name={w.icon} size={13} />
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className="flex items-baseline justify-between gap-2 text-xs">
+          <span className="font-semibold text-slate-800">{who}</span>
+          <time className="shrink-0 tabular-nums text-slate-500">{fmtTime(at)}</time>
+        </div>
+        <div className={cx("mt-1 text-[13px] leading-relaxed text-slate-700", tone === "provider" && "rounded-md border border-amber-200 bg-amber-50/50 px-3 py-2", tone === "me" && "rounded-md bg-brand-50 px-3 py-2")}>{children}</div>
       </div>
-      <div className="text-sm text-slate-800">{children}</div>
+    </li>
+  );
+}
+
+/** API failures carry raw provider errors; show a plain sentence and keep the detail one click away. */
+function SystemText({ body }: { body: string }) {
+  const m = body.match(/^(.*?)(?:\(|: )?((?:check|classify|scope|extract)?:? ?API error:.*?\}\}\)?)(.*)$/s);
+  if (!m) return <p className="whitespace-pre-wrap">{body}</p>;
+  const summary = /credit|quota|429/i.test(m[2]!) ? "The AI service is unavailable (usage limit reached)." : "The AI service returned an error.";
+  return (
+    <div className="space-y-1.5">
+      <p className="whitespace-pre-wrap">
+        {m[1]!.replace(/[:(]\s*$/, "").trim()}. {summary} {m[3]!.replace(/^[).;\s]+/, "").replace(/^./, (ch) => ch.toUpperCase())}
+      </p>
+      <Disclosure summary="Technical details">
+        <pre className="mail rounded bg-slate-50 p-2 text-slate-600">{m[2]}</pre>
+      </Disclosure>
     </div>
   );
 }
@@ -373,7 +470,7 @@ function CommentView({ c, r, isLatestProposal }: { c: Comment; r: RequestDetail;
     default:
       return (
         <Bubble who={c.kind === "message" ? who : `${who} · ${c.kind.replace(/_/g, " ")}`} tone={tone} at={c.created_at}>
-          <p className="whitespace-pre-wrap">{c.body}</p>
+          {c.author === "system" ? <SystemText body={c.body} /> : <p className="whitespace-pre-wrap">{c.body}</p>}
         </Bubble>
       );
   }
@@ -522,6 +619,17 @@ function AnswerQuestion({ r, questionId }: { r: RequestDetail; questionId: numbe
   );
 }
 
+/** "file.pdf p.1, p.2; other.xlsx sheet 'A'": one entry per file, each location once. */
+function evidenceSummary(ev: { filename: string; location: string; visual?: boolean; verified?: boolean }[]) {
+  const by = new Map<string, Set<string>>();
+  for (const e of ev) {
+    const locs = by.get(e.filename) ?? new Set<string>();
+    if (e.location) locs.add(e.location + (e.visual && !e.verified ? " (visual)" : ""));
+    by.set(e.filename, locs);
+  }
+  return [...by].map(([f, l]) => `${f}${l.size ? ` ${[...l].join(", ")}` : ""}`).join("; ");
+}
+
 function Handback({ c }: { c: Comment }) {
   const p = c.payload;
   return (
@@ -537,7 +645,7 @@ function Handback({ c }: { c: Comment }) {
               <span>{it.description}</span>
               <VerdictBadge verdict={it.verdict} />
             </div>
-            {it.evidence?.length > 0 && <p className="mt-0.5 text-slate-500">{it.evidence.map((e: any) => `${e.filename} ${e.location}${e.visual && !e.verified ? " (visual)" : ""}`).join("; ")}</p>}
+            {it.evidence?.length > 0 && <p className="mt-0.5 text-slate-500">{evidenceSummary(it.evidence)}</p>}
             {it.verdict !== "met" && it.missing?.map((m: string, i: number) => <p key={i} className="text-red-700">• {m}</p>)}
           </li>
         ))}
