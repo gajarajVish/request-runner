@@ -240,8 +240,10 @@ def norm(s: str) -> str:
 
 
 def _contains(hay: str, quote: str) -> bool:
+    """Every part of the quote appears verbatim, in order. Parts are split at an ellipsis or a
+    line break: a multi-line quote that skips a line in between is an excerpt, not a fabrication."""
     h = norm(hay)
-    parts = [norm(p) for p in re.split(r"\.\.\.|…", quote) if norm(p)]
+    parts = [norm(p) for p in re.split(r"\.\.\.|…|\n", quote) if norm(p)]
     if not parts:
         return False
     pos = 0

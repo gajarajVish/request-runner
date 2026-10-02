@@ -11,6 +11,7 @@ The model proposes verdicts with citations. Code then:
 from __future__ import annotations
 
 import json
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -137,6 +138,18 @@ def check_job(payload: dict) -> None:
             recheck_dependents_on_new_evidence(s, req)
 
 
+def _name_evidence(text: str, files: dict[str, EvidenceFile]) -> str:
+    """`missing` goes to the provider: evidence ids (E12) become the file name, or 'your message'."""
+
+    def sub(m: re.Match) -> str:
+        f = files.get(m.group(0))
+        if f is None:
+            return m.group(0)
+        return f.filename if f.kind == "file" else "your message"
+
+    return re.sub(r"\bE\d+\b", sub, text)
+
+
 def _guard_item(item: ChecklistItem, ic: ItemCheck | None, files: dict[str, EvidenceFile], assigned: list[EvidenceFile]) -> dict[str, Any]:
     flags: list[str] = []
     if ic is None:
@@ -185,9 +198,9 @@ def _guard_item(item: ChecklistItem, ic: ItemCheck | None, files: dict[str, Evid
             verdict = "partly_met"
     if verdict == "not_met" and assigned and all(f.extraction_status != "ok" for f in assigned):
         verdict = "unreadable"
-    missing = list(ic.missing)
+    missing = [_name_evidence(m, files) for m in ic.missing]
     if verdict != "met" and not missing:
-        missing = [f"{item.description}: {ic.rationale or 'not yet satisfied'}"]
+        missing = [f"{item.description}: {_name_evidence(ic.rationale or 'not yet satisfied', files)}"]
     if verdict == "met":
         missing = []
     return {

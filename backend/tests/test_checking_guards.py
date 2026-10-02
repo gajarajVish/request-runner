@@ -338,7 +338,33 @@ def test_sheet_quotes_in_cell_ref_form_verify_against_the_exact_cells():
     assert not _cells_match("...", cells, None, vals)
 
 
+def test_multi_line_quote_may_skip_a_line_but_not_reorder_or_invent():
+    from app.workflow.evidence import _contains
+
+    page = "Business Checking Statement\nAccount holder: Alder & Finch Co.\nAccount: Operating ****2291\nStatement period: July 1, 2026 – July 31, 2026"
+    assert _contains(page, "Business Checking Statement\nAccount: Operating ****2291\nStatement period: July 1, 2026 – July 31, 2026")
+    assert not _contains(page, "Account: Operating ****2291\nBusiness Checking Statement")  # out of order
+    assert not _contains(page, "Business Checking Statement\nStatement period: August 1, 2026 – August 31, 2026")
+
+
 def test_float_cells_show_displayed_value():
     from app.extraction.core import _fmt
 
     assert _fmt(346037.7600000001) == "346037.76" and _fmt(12.0) == "12" and _fmt(0.1 + 0.2) == "0.3"
+
+
+def test_provider_facing_text_names_files_not_evidence_ids():
+    from app.workflow.checking import _name_evidence
+
+    files = {"E12": EvidenceFile(id=12, kind="file", filename="acme-msa-2025_unsigned.pdf"), "E17": EvidenceFile(id=17, kind="text", filename="Email from carlos@example.com")}
+    assert _name_evidence("E12 has blank signature lines; E17 only restates policy; E99 stays", files) == (
+        "acme-msa-2025_unsigned.pdf has blank signature lines; your message only restates policy; E99 stays"
+    )
+
+
+def test_model_output_format_never_becomes_a_document_format():
+    from app.llm.schemas import Criteria
+
+    base = {"period": None, "entity": None, "required_elements": [], "signature": None, "currency_rule": None}
+    assert Criteria.model_validate({**base, "format": "json_object"}).format is None
+    assert Criteria.model_validate({**base, "format": "PDF downloaded from the bank"}).format == "PDF downloaded from the bank"

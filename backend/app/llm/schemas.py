@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Verdict = Literal["met", "partly_met", "not_met", "unreadable"]
 SubVerdict = Literal["met", "partly_met", "not_met", "unreadable", "not_applicable"]
@@ -28,10 +28,18 @@ class SignatureCriteria(BaseModel):
 class Criteria(BaseModel):
     period: str | None = Field(description="Period the document must cover, e.g. 'July-September 2026'.")
     entity: str | None = Field(description="Entity / account / counterparty it must relate to.")
-    format: str | None = Field(description="Required format, e.g. 'PDF downloaded from the bank'.")
+    format: str | None = Field(
+        description="The form the provider must deliver it in, e.g. 'PDF downloaded from the bank'. Null if any form will do (e.g. a typed answer)."
+    )
     required_elements: list[str] = Field(description="Things that must be visible in the document.")
     signature: SignatureCriteria | None
     currency_rule: str | None = Field(description="E.g. 'policy period must include today's date'. Null if none.")
+
+    @field_validator("format")
+    @classmethod
+    def _not_a_response_format(cls, v: str | None) -> str | None:
+        # models sometimes fill this with their own output format; it would reach the provider's email
+        return None if v and v.strip().lower().replace("-", "_") in {"json", "json_object", "json_schema", "text", "structured_output"} else v
 
 
 class Subpoint(BaseModel):
