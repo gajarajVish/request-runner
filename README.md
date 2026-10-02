@@ -122,7 +122,26 @@ Outbound mail goes out as `"<Requester> via RequestRunner" <requests@mail.<domai
 `Reply-To: req+<opaque-token>@in.<domain>`. Replies come back through the provider's inbound
 webhook.
 
-**Postmark (primary)**
+**Gmail (free, no domain, works on a laptop)**
+1. Turn on 2-step verification for the Google account, then create an app password:
+   Google Account → Security → App passwords (myaccount.google.com/apppasswords).
+2. In `.env`: `EMAIL_PROVIDER=gmail`, `GMAIL_ADDRESS=you@gmail.com`, `GMAIL_APP_PASSWORD=...`.
+3. `uv run rr gmail-check` logs in to send and read without sending anything. Then restart the server.
+
+Mail goes out from your Gmail as "<Requester> via RequestRunner", with
+`Reply-To: you+req+<token>@gmail.com`. Gmail delivers those replies to your inbox; the
+server checks it every minute (`GMAIL_POLL_SECONDS`) and only picks up messages sent to a
+`+req+` address. The inbox is opened read-only: nothing is marked read, moved or deleted.
+`uv run rr gmail-poll` checks right away. Limits: Gmail allows about 500 emails a day,
+replies show up within a minute, and replies Gmail files as spam are not seen.
+
+Upload links in the emails point at `APP_BASE_URL`. For providers on other computers, give
+the app a public address, e.g. a free Cloudflare quick tunnel:
+`cloudflared tunnel --url http://localhost:8000` (serve the built UI from the backend), then
+set `APP_BASE_URL` to the `https://….trycloudflare.com` address it prints and restart.
+Email replies with attachments work without this.
+
+**Postmark (custom domain)**
 1. Verify a sending domain `mail.<domain>` (DKIM, Return-Path CNAME) and add SPF and DMARC.
 2. Add an MX record for `in.<domain>` pointing to `inbound.postmarkapp.com`, and set it as
    the server's inbound domain.
@@ -151,12 +170,15 @@ requester's own.
 ```bash
 fly launch --no-deploy --copy-config        # uses fly.toml and the Dockerfile
 fly volumes create rr_data --size 1         # SQLite + files live on /data
-fly secrets set SESSION_SECRET=... APP_BASE_URL=https://<app>.fly.dev \
-  ANTHROPIC_API_KEY=... POSTMARK_SERVER_TOKEN=... EMAIL_INBOUND_BASIC_AUTH=user:pass \
-  EMAIL_FROM_ADDRESS=requests@mail.<domain> EMAIL_INBOUND_DOMAIN=in.<domain> \
-  SEED_USERS="Sam Rivera|sam@<domain>|<password>"
+fly secrets set SESSION_SECRET=$(openssl rand -hex 32) APP_BASE_URL=https://<app>.fly.dev \
+  ANTHROPIC_API_KEY=... GMAIL_ADDRESS=you@gmail.com GMAIL_APP_PASSWORD=... \
+  SEED_USERS="Your Name|you@example.com|<password>"
 fly deploy
 ```
+
+With Postmark instead of Gmail, set `EMAIL_PROVIDER=postmark` and the secrets
+`POSTMARK_SERVER_TOKEN`, `EMAIL_INBOUND_BASIC_AUTH=user:pass`, `EMAIL_FROM_ADDRESS` and
+`EMAIL_INBOUND_DOMAIN` (see Email setup).
 
 One machine, always on: SQLite plus the in-process job worker that sends reminders.
 In production (`APP_ENV=production`) the app **refuses to start** in these cases:

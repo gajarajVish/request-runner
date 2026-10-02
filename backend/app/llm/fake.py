@@ -6,7 +6,9 @@ returns a conservative default (nothing met, nothing closed, no questions).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
+from datetime import date
 from typing import Any
 
 from pydantic import BaseModel
@@ -14,6 +16,24 @@ from pydantic import BaseModel
 from .base import LLMCall
 
 Handler = Callable[[LLMCall], Any]
+
+_EMPTY_CRITERIA = {"period": None, "entity": None, "format": None, "required_elements": [], "signature": None, "currency_rule": None}
+_MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+
+
+def _parse_due(text: str, today: str | None) -> str | None:
+    """"by Oct 30" / "by October 30, 2026" -> ISO date (next occurrence when no year is given)."""
+    m = re.search(r"\bby\s+([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?", text)
+    if not m or m.group(1)[:3].lower() not in _MONTHS:
+        return None
+    t = date.fromisoformat(today) if today else date.today()
+    try:
+        d = date(int(m.group(3) or t.year), _MONTHS[m.group(1)[:3].lower()], int(m.group(2)))
+    except ValueError:
+        return None
+    if not m.group(3) and d < t:
+        d = d.replace(year=d.year + 1)
+    return d.isoformat()
 
 
 class FakeLLM:
@@ -36,17 +56,44 @@ class FakeLLM:
     # ------------------------------------------------------------------ defaults
 
     def _default_scope(self, call: LLMCall) -> dict:
+        """Offline stand-in: keeps the existing draft, otherwise reads the provider's email, name and
+        a "by <date>" from the first request message, and makes that request the one item."""
+        base = call.context.get("base")
+        if base and (base.get("items") or base.get("provider_email")):
+            return {
+                "message_to_requester": "Kept your current checklist (offline mode can't apply changes; edit it directly).",
+                "clarifying_questions": [],
+                "title": call.context.get("title") or "Request",
+                "provider_name": base.get("provider_name"),
+                "provider_email": base.get("provider_email"),
+                "provider_organization": None,
+                "due_date": base.get("due_date"),
+                "items": [{k: i[k] for k in ("kind", "description", "criteria", "subpoints")} for i in base.get("items", [])],
+                "assumptions": [],
+                "ready_to_confirm": bool(base.get("items") and base.get("provider_email")),
+            }
+        thread = call.context.get("comment", "")
+        ask = next((ln.removeprefix("[requester] ").strip() for ln in thread.splitlines() if ln.startswith("[requester] ")), thread.strip())
+        email = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", ask)
+        name = re.search(r"from\s+([A-Z][\w.'-]*(?:\s+[A-Z][\w.'-]*)*)\s*\(?\s*[\w.+-]+@", ask)
+        due = _parse_due(ask, call.context.get("today"))
+        item = re.sub(r"\s*\(?[\w.+-]+@[\w-]+(?:\.[\w-]+)+\)?", "", ask)
+        item = re.sub(r"\s+by\s+\w+\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s*\d{4})?\.?$", "", item, flags=re.I).strip(" .")
+        item = re.sub(r"^(?:please\s+)?(?:get|collect|request|ask for)\s+(?:(?:a|an|the)\s+)?", "", item, flags=re.I)
+        if name and f" from {name.group(1)}" in item:
+            item = item[: item.index(f" from {name.group(1)}")]
+        item = item[:1].upper() + item[1:] if item else "Requested document"
         return {
-            "message_to_requester": "Here is a draft checklist.",
+            "message_to_requester": "Offline mode (LLM_PROVIDER=fake): I filled this in from your message without a model. Check it, edit if needed, then confirm.",
             "clarifying_questions": [],
-            "title": call.context.get("comment", "Request")[:60],
-            "provider_name": None,
-            "provider_email": None,
+            "title": item[:60],
+            "provider_name": name.group(1) if name else None,
+            "provider_email": email.group(0).lower() if email else None,
             "provider_organization": None,
-            "due_date": None,
-            "items": [],
+            "due_date": due,
+            "items": [{"kind": "answer" if ask.rstrip().endswith("?") else "document", "description": item, "criteria": _EMPTY_CRITERIA, "subpoints": []}],
             "assumptions": [],
-            "ready_to_confirm": False,
+            "ready_to_confirm": bool(email),
         }
 
     def _default_scope_row(self, call: LLMCall) -> dict:

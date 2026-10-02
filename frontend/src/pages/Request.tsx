@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, bytes, fmtDate, fmtTime, type Comment, type EvidenceFile, type Item, type RequestDetail, type Version } from "../api";
-import { ChecklistEditor, ChecklistView, toDraft, type DraftItem } from "../components/Checklist";
+import { ChecklistEditor, ChecklistView, emptyCriteria, toDraft, type DraftItem } from "../components/Checklist";
 import { DraftEditor, InboundView, OutboundView } from "../components/Mail";
 import { Avatar, Badge, Button, Card, Disclosure, Empty, ErrorText, Field, FlagList, Icon, type IconName, Menu, Modal, Progress, RefId, Segmented, Spinner, StateBadge, Tabs, VerdictBadge, cx, inputCls } from "../components/ui";
 
@@ -487,7 +487,7 @@ function ProposalCard({ c, r, active }: { c: Comment; r: RequestDetail; active: 
   const [cc, setCc] = useState(false);
   const start = () => {
     if (!v) return;
-    setItems(toDraft(v.items));
+    setItems(v.items.length ? toDraft(v.items) : [{ kind: "document", description: "", criteria: emptyCriteria(), subpoints: [] }]);
     setEmail(v.provider_email ?? "");
     setName(v.provider_name ?? "");
     setDue(v.due_date ?? "");
@@ -578,6 +578,11 @@ function ProposalCard({ c, r, active }: { c: Comment; r: RequestDetail; active: 
               {r.current_version ? `Confirm v${v.number} and notify provider` : "Confirm checklist"}
             </Button>
           </div>
+          {(!v.items.length || !v.provider_email) && (
+            <p className="text-xs text-amber-800">
+              To confirm, {[!v.provider_email && "add the provider's email", !v.items.length && "add at least one item"].filter(Boolean).join(" and ")}. Click Edit.
+            </p>
+          )}
           <ErrorText error={confirm.error} />
         </>
       )}

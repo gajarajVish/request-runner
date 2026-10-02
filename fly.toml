@@ -7,7 +7,7 @@ primary_region = "iad"
 [env]
   APP_ENV = "production"
   DATA_DIR = "/data"
-  EMAIL_PROVIDER = "postmark"
+  EMAIL_PROVIDER = "gmail"   # or "postmark" with a custom domain (see README)
   LLM_PROVIDER = "anthropic"
   WORKSPACE_TIMEZONE = "America/New_York"
 

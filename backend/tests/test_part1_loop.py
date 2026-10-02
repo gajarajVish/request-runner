@@ -149,3 +149,31 @@ def test_provider_closes_with_partial(env):
     run_jobs(advance_seconds=600)
     assert not any(m.kind if hasattr(m, "kind") else False for m in [])  # no follow-up to provider after close
     assert all("still needs" not in m.text for m in env.sender.sent)
+
+
+def test_a_reply_after_editing_the_draft_keeps_the_edit(env, monkeypatch):
+    """Editing the proposed checklist, then replying in the thread, must not drop the edit."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    monkeypatch.setenv("RUN_WORKER", "false")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    env.llm.handlers.pop("scope", None)  # the offline default
+    c = TestClient(create_app())
+    assert c.post("/api/login", json={"email": "sam@example.com", "password": "pw"}).status_code == 200
+    rid = c.post("/api/requests", json={"text": "Get a W-9 from Vishva (v@example.com) by Oct 30"}).json()["id"]
+    run_jobs()
+    r = c.get(f"/api/requests/{rid}").json()
+    v = r["proposed_version"]
+    assert v["provider_email"] == "v@example.com" and v["due_date"] == "2026-10-30" and v["items"][0]["description"] == "W-9"
+
+    items = [{"kind": "document", "description": "Signed W-9 form (2024 revision)", "criteria": v["items"][0]["criteria"], "subpoints": []}]
+    assert c.put(f"/api/requests/{rid}/versions/{v['id']}", json={"items": items, "provider_email": "v@example.com"}).status_code == 200
+    c.post(f"/api/requests/{rid}/comments", json={"text": "Yes."})
+    run_jobs()
+    assert "<draft_checklist>" in env.llm.calls[-1].content[0]["text"]
+    v = c.get(f"/api/requests/{rid}").json()["proposed_version"]
+    assert [i["description"] for i in v["items"]] == ["Signed W-9 form (2024 revision)"] and v["provider_email"] == "v@example.com"

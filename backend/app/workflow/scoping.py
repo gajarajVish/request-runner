@@ -17,7 +17,7 @@ from ..llm import prompts
 from ..llm.schemas import DraftItem, ScopeProposal
 from ..models import ChecklistItem, ChecklistVersion, Comment, Conversation, ConversationRequest, Request, RequestOwner, User
 from . import emails, hub, jobs, outbox, states
-from .common import add_comment, current_version, get_or_create_provider, next_version_number
+from .common import add_comment, current_version, get_or_create_provider, latest_proposed, next_version_number
 
 
 class ScopeError(Exception):
@@ -99,13 +99,24 @@ def build_scope_call(session: Session, req: Request, requester: User) -> llm.LLM
             _checklist_json(cur),
             "</confirmed_checklist>",
         ]
+    draft = latest_proposed(session, req)
+    if cur is None and draft is not None and (draft.items or draft.provider_email):
+        # the requester may have edited this draft by hand; their latest message builds on it
+        parts += [
+            "The requester's current draft checklist is below (they may have edited it themselves). "
+            "Keep it as it is unless their latest message asks for a change.",
+            "<draft_checklist>",
+            _checklist_json(draft),
+            "</draft_checklist>",
+        ]
+    base = cur or draft
     return llm.LLMCall(
         step="scope",
         system=prompts.SCOPE.format(today=today.isoformat()),
         content=[{"type": "text", "text": "\n".join(parts)}],
         output=ScopeProposal,
         tier="strong",
-        context={"request_id": req.id, "comment": _thread_text(session, req)},
+        context={"request_id": req.id, "title": req.title, "comment": _thread_text(session, req), "today": today.isoformat(), "base": json.loads(_checklist_json(base)) if base else None},
     )
 
 

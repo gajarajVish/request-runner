@@ -259,16 +259,23 @@ export function ChecklistEditor({ items, onChange }: { items: DraftItem[]; onCha
           <div className="flex items-start gap-2">
             <span className="mt-2 w-5 text-right text-xs font-semibold text-slate-400">{i + 1}.</span>
             <div className="flex-1 space-y-2">
-              <div className="flex gap-2">
-                <select className={cx(inputCls, "w-32")} value={it.kind} onChange={(e) => set(i, { kind: e.target.value as DraftItem["kind"] })}>
+              <div className="flex items-center gap-2">
+                <select aria-label={`Item ${i + 1} type`} className={cx(inputCls, "w-36")} value={it.kind} onChange={(e) => set(i, { kind: e.target.value as DraftItem["kind"] })}>
                   <option value="document">Document</option>
                   <option value="answer">Answer</option>
                 </select>
-                <textarea className={cx(inputCls, "min-h-[38px]")} rows={1} value={it.description} onChange={(e) => set(i, { description: e.target.value })} placeholder="What the provider should send" />
-                <Button variant="ghost" size="sm" onClick={() => onChange(items.filter((_, n) => n !== i))} title="Remove item">
-                  ✕
+                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onChange(items.filter((_, n) => n !== i))} aria-label={`Remove item ${i + 1}`}>
+                  <Icon name="x" size={14} /> Remove
                 </Button>
               </div>
+              <textarea
+                aria-label={`Item ${i + 1}`}
+                className={cx(inputCls, "min-h-[56px]")}
+                rows={2}
+                value={it.description}
+                onChange={(e) => set(i, { description: e.target.value })}
+                placeholder={it.kind === "answer" ? "The question the provider should answer" : "The document the provider should send, e.g. Signed W-9 form"}
+              />
               <Disclosure summary="Acceptance criteria and sub-points">
                 <div className="grid gap-2 sm:grid-cols-2">
                   {(["period", "entity", "format", "currency_rule"] as const).map((k) => (

@@ -78,6 +78,8 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("seed")
     sub.add_parser("run-jobs")
     sub.add_parser("sweep")
+    sub.add_parser("gmail-check", help="log in to Gmail (send + read) without sending anything")
+    sub.add_parser("gmail-poll", help="read new replies from Gmail now")
     adv = sub.add_parser("advance-clock")
     adv.add_argument("--days", type=float, default=0)
     adv.add_argument("--hours", type=float, default=0)
@@ -101,6 +103,17 @@ def main(argv: list[str] | None = None) -> None:
         print("seeded")
     elif a.cmd == "run-jobs":
         print(f"ran {jobs.run_until_idle()} job(s)")
+    elif a.cmd == "gmail-check":
+        from .config import get_settings
+        from .email import gmail
+
+        problems = gmail.check_connection()
+        print("\n".join(problems) if problems else f"Gmail OK: sending and reading as {get_settings().gmail_address}")
+        sys.exit(1 if problems else 0)
+    elif a.cmd == "gmail-poll":
+        from .email import gmail
+
+        print(f"queued {gmail.poll_once()} new repl(ies); the server's worker processes them")
     elif a.cmd == "sweep":
         from .workflow.followups import enqueue_sweep
 

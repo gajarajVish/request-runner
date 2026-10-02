@@ -142,9 +142,24 @@ class Worker(threading.Thread):
         super().__init__(daemon=True, name="rr-worker")
         self._stop = threading.Event()
         self._last_sweep = 0.0
+        self._last_gmail = 0.0
 
     def stop(self) -> None:
         self._stop.set()
+
+    def _poll_gmail(self) -> None:
+        s = get_settings()
+        if s.email_provider != "gmail" or time.monotonic() - self._last_gmail < s.gmail_poll_seconds:
+            return
+        self._last_gmail = time.monotonic()
+        from ..email import gmail
+
+        try:
+            n = gmail.poll_once()
+            if n:
+                log.info("gmail: queued %d new repl%s", n, "y" if n == 1 else "ies")
+        except Exception:  # noqa: BLE001
+            log.exception("gmail poll failed")
 
     def run(self) -> None:
         from .followups import enqueue_sweep
@@ -157,6 +172,7 @@ class Worker(threading.Thread):
                     with session_scope() as s:
                         enqueue_sweep(s)
                     self._last_sweep = time.monotonic()
+                self._poll_gmail()
                 if run_due() == 0:
                     self._stop.wait(poll)
             except Exception:  # noqa: BLE001

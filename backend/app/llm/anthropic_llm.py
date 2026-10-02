@@ -33,7 +33,7 @@ class AnthropicLLM:
         if call.tier == "strong":
             kwargs["thinking"] = {"type": "adaptive"}
             kwargs["output_config"] = {"effort": s.llm_strong_effort}
-            if self.fallbacks and model in ("claude-opus-5", "claude-fable-5-1"):
+            if self.fallbacks and model in ("claude-opus-5-5", "claude-opus-5", "claude-fable-5-1"):
                 # server-side refusal fallback: the API retries a declined request on a fallback model
                 kwargs["extra_headers"] = {"anthropic-beta": "server-side-fallback-2026-07-01"}
                 kwargs["extra_body"] = {"fallbacks": "default"}

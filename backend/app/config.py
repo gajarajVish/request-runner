@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
     # LLM
     llm_provider: str = "anthropic"  # anthropic | openai | fake
     anthropic_api_key: str = ""
-    llm_strong_model: str = "claude-opus-5"
+    llm_strong_model: str = "claude-opus-5-5"
     llm_fast_model: str = "claude-haiku-4-5"
     llm_strong_effort: str = "high"
     llm_max_retries: int = 2  # retries for schema-invalid output
@@ -40,7 +41,7 @@ class Settings(BaseSettings):
     openai_reasoning_effort: str = "medium"
 
     # Email
-    email_provider: str = "file"  # file | postmark | sendgrid
+    email_provider: str = "file"  # file | gmail | postmark | sendgrid
     email_from_address: str = "requests@mail.example.com"
     email_inbound_domain: str = "in.example.com"
     email_inbound_prefix: str = "req"
@@ -48,6 +49,11 @@ class Settings(BaseSettings):
     postmark_server_token: str = ""
     postmark_message_stream: str = "outbound"
     sendgrid_api_key: str = ""
+    # gmail: send through the account and read replies from its inbox. Replies go to
+    # <you>+req+<token>@gmail.com, which Gmail delivers to <you>@gmail.com.
+    gmail_address: str = ""
+    gmail_app_password: str = ""  # Google account -> Security -> App passwords
+    gmail_poll_seconds: int = 60
 
     # Uploads
     upload_max_file_bytes: int = 25 * 1024 * 1024
@@ -66,6 +72,18 @@ class Settings(BaseSettings):
     provider_min_gap_seconds: int = 600
     worker_poll_seconds: float = 1.0
     run_worker: bool = True
+
+    @model_validator(mode="after")
+    def _gmail_addresses(self) -> "Settings":
+        """With Gmail, mail is sent from the account and replies come back to it by plus-address."""
+        if self.email_provider == "gmail" and "@" in self.gmail_address:
+            local, domain = self.gmail_address.strip().lower().split("@", 1)
+            self.gmail_address = f"{local}@{domain}"
+            self.email_from_address = self.gmail_address
+            self.email_inbound_domain = domain
+            if "+" not in self.email_inbound_prefix:
+                self.email_inbound_prefix = f"{local}+{self.email_inbound_prefix}"
+        return self
 
     @property
     def is_dev(self) -> bool:
@@ -102,6 +120,8 @@ def production_problems(s: Settings) -> list[str]:
         out.append("POSTMARK_SERVER_TOKEN is required with EMAIL_PROVIDER=postmark")
     if s.email_provider == "sendgrid" and not s.sendgrid_api_key:
         out.append("SENDGRID_API_KEY is required with EMAIL_PROVIDER=sendgrid")
+    if s.email_provider == "gmail" and not (s.gmail_address and s.gmail_app_password):
+        out.append("GMAIL_ADDRESS and GMAIL_APP_PASSWORD are required with EMAIL_PROVIDER=gmail")
     if s.llm_provider == "anthropic" and not s.anthropic_api_key:
         out.append("ANTHROPIC_API_KEY is required with LLM_PROVIDER=anthropic")
     if s.llm_provider == "openai" and not s.openai_api_key:

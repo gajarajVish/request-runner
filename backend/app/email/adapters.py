@@ -200,6 +200,10 @@ def get_sender() -> EmailSender:
             _sender = PostmarkSender(s.postmark_server_token, s.postmark_message_stream)
         elif s.email_provider == "sendgrid":
             _sender = SendGridSender(s.sendgrid_api_key)
+        elif s.email_provider == "gmail":
+            from .gmail import GmailSender
+
+            _sender = GmailSender(s.gmail_address, s.gmail_app_password)
         else:
             _sender = FileSender(s.outbox_dir)
     return _sender
