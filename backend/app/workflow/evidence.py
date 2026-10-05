@@ -17,7 +17,8 @@ from ..models import EvidenceFile
 from ..storage import get_store
 
 MAX_TEXT_PER_FILE = 60_000
-MAX_IMAGES_PER_CALL = 40
+MAX_TEXT_PER_CALL = 240_000  # ~60k tokens; every check resends all of a request's evidence
+MAX_IMAGES_PER_CALL = 20
 MAX_EML_DEPTH = 2
 
 
@@ -190,6 +191,7 @@ def render(files: list[EvidenceFile], describe: dict[int, str]) -> tuple[list[di
     notes: list[str] = []
     text_parts: list[str] = []
     images_used = 0
+    total_used = 0
 
     def flush_text() -> None:
         if text_parts:
@@ -201,17 +203,23 @@ def render(files: list[EvidenceFile], describe: dict[int, str]) -> tuple[list[di
         if not ef.accepted or ef.extraction_status != "ok":
             text_parts.append(f'{head} status="unreadable" reason="{_attr(ef.unreadable_reason or ef.rejection_reason or "unknown")}" />')
             continue
+        limit = min(MAX_TEXT_PER_FILE, MAX_TEXT_PER_CALL - total_used)
+        if limit <= 0 and ef.extraction.get("segments"):
+            text_parts.append(f'{head} status="not_shown" reason="text limit for one check reached" />')
+            notes.append(f"{ef.filename}: not shown (text limit for one check)")
+            continue
         text_parts.append(f"{head}>")
         used = 0
         for seg in ef.extraction.get("segments", []):
             t = seg["text"]
-            if used + len(t) > MAX_TEXT_PER_FILE:
-                t = t[: max(0, MAX_TEXT_PER_FILE - used)]
-                notes.append(f"{ef.filename}: text truncated at {MAX_TEXT_PER_FILE} characters")
+            if used + len(t) > limit:
+                t = t[: max(0, limit - used)]
+                notes.append(f"{ef.filename}: text truncated at {limit} characters")
             used += len(t)
             text_parts.append(f'<segment loc="{_attr(seg["label"])}">\n{_neutralize(t)}\n</segment>')
-            if used >= MAX_TEXT_PER_FILE:
+            if used >= limit:
                 break
+        total_used += used
         imgs = ef.extraction.get("images", [])
         if imgs:
             text_parts.append(f"(page images for {eid(ef)} follow)")

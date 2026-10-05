@@ -296,7 +296,10 @@ def answer_question(rid: int, body: AnswerIn, user: User = Depends(current_user)
 def chat(rid: int, body: TextIn, user: User = Depends(current_user), s: Session = Depends(db, scope="function")):
     from ..workflow import chat as chat_mod
 
+    from .public import limiter
+
     req = owned_request(rid, user, s)
+    limiter.check(f"chat:{user.id}", get_settings().chat_messages_per_10_min, 600)
     return chat_mod.ask(s, user, req, body.text)
 
 

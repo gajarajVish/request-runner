@@ -96,10 +96,13 @@ def parse_csv(data: bytes) -> tuple[list[dict[str, Any]], list[str]]:
     if missing:
         return [], [f"Missing column(s): {', '.join(missing)}. Expected: {', '.join(COLUMNS)}."]
     rows = []
+    cap = get_settings().max_import_rows
     for n, raw in enumerate(reader, start=2):
         rec = {(k or "").strip().lower(): (v or "") for k, v in raw.items() if k}
         if not any(_norm(v) for v in rec.values()):
             continue
+        if len(rows) >= cap:  # each new or changed row is one strong-model scoping call
+            return [], [f"The file has more than {cap} requests. Split it into smaller files (MAX_IMPORT_ROWS)."]
         errors: list[str] = []
         names, mails = _split(rec.get("owner_name")), [m.lower() for m in _split(rec.get("owner_email"))]
         if not mails:

@@ -8,7 +8,7 @@ import anthropic
 from pydantic import BaseModel, ValidationError
 
 from ..config import get_settings
-from .base import LLMCall, LLMError
+from .base import LLMCall, LLMError, record_usage
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +58,8 @@ class AnthropicLLM:
                 continue
             except anthropic.APIError as e:  # rate limits, 5xx, connection; SDK already retried
                 raise LLMError(f"{call.step}: API error: {e}") from e
+            u = msg.usage
+            record_usage(call.step, u.input_tokens + (u.cache_read_input_tokens or 0) + (u.cache_creation_input_tokens or 0), u.output_tokens)
             if msg.stop_reason == "refusal":
                 raise LLMError(f"{call.step}: model declined the request")
             if msg.stop_reason == "max_tokens":

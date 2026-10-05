@@ -7,7 +7,10 @@ model; fakes use it to produce deterministic outputs in tests.
 
 from __future__ import annotations
 
+import json
+import threading
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel
@@ -61,7 +64,60 @@ def set_llm(llm: LLM | None) -> None:
     _llm = llm
 
 
+# --------------------------------------------------------------------------- daily token budget
+# Usage is kept per UTC day in DATA_DIR/llm-usage.json so the cap survives restarts. A call
+# already in flight can overshoot the cap; the next one is refused.
+
+_usage_lock = threading.Lock()
+
+
+def _usage_path():
+    from ..config import get_settings
+
+    return get_settings().data_dir / "llm-usage.json"
+
+
+def _load_usage() -> dict[str, Any]:
+    try:
+        return json.loads(_usage_path().read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def usage_today() -> dict[str, int]:
+    day = datetime.now(UTC).date().isoformat()
+    with _usage_lock:
+        return _load_usage().get(day, {"input": 0, "output": 0, "calls": 0})
+
+
+def record_usage(step: str, input_tokens: int, output_tokens: int) -> None:
+    day = datetime.now(UTC).date().isoformat()
+    with _usage_lock:
+        data = _load_usage()
+        d = data.setdefault(day, {"input": 0, "output": 0, "calls": 0})
+        d["input"] += int(input_tokens or 0)
+        d["output"] += int(output_tokens or 0)
+        d["calls"] += 1
+        by_step = d.setdefault("by_step", {})
+        by_step[step] = by_step.get(step, 0) + int(input_tokens or 0) + int(output_tokens or 0)
+        for old in sorted(data)[:-30]:  # keep 30 days
+            del data[old]
+        _usage_path().write_text(json.dumps(data, indent=1))
+
+
+def _check_budget(call: LLMCall) -> None:
+    from ..config import get_settings
+
+    cap = get_settings().llm_daily_token_budget
+    if cap <= 0:
+        return
+    u = usage_today()
+    if u["input"] + u["output"] >= cap:
+        raise LLMError(f"{call.step}: daily LLM token budget reached ({cap:,} tokens); resets at 00:00 UTC")
+
+
 def run(call: LLMCall, output: type[T]) -> T:
+    _check_budget(call)
     result = get_llm().run(call)
     if not isinstance(result, output):
         # fakes may return dicts; validate them the same way real output is validated

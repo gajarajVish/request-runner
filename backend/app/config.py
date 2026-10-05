@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     llm_strong_model: str = "claude-opus-5-5"
     llm_fast_model: str = "claude-haiku-4-5"
     llm_strong_effort: str = "high"
-    llm_max_retries: int = 2  # retries for schema-invalid output
+    llm_max_retries: int = 1  # retries for schema-invalid/truncated output (each resends the full input)
+    llm_daily_token_budget: int = 5_000_000  # input+output tokens per UTC day, all calls; 0 = no cap
     llm_server_fallbacks: bool = True  # server-side refusal fallback for Opus 5
     openai_api_key: str = ""
     openai_strong_model: str = "gpt-5.5"
@@ -71,6 +72,11 @@ class Settings(BaseSettings):
     check_debounce_seconds: int = 3  # coalesce attachments/uploads arriving together
     provider_min_gap_seconds: int = 600
     worker_poll_seconds: float = 1.0
+
+    # Spend limits: every check resends all of a request's evidence to the strong model
+    max_checks_per_request_per_day: int = 20
+    max_import_rows: int = 300
+    chat_messages_per_10_min: int = 20  # per user
     run_worker: bool = True
 
     @model_validator(mode="after")

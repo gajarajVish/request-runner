@@ -13,7 +13,7 @@ import openai
 from pydantic import BaseModel, ValidationError
 
 from ..config import get_settings
-from .base import LLMCall, LLMError
+from .base import LLMCall, LLMError, record_usage
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +61,8 @@ class OpenAILLM:
                 continue
             except openai.APIError as e:  # rate limits, 5xx, connection; SDK already retried
                 raise LLMError(f"{call.step}: API error: {e}") from e
+            if resp.usage:
+                record_usage(call.step, resp.usage.input_tokens, resp.usage.output_tokens)
             if resp.status == "incomplete":
                 reason = getattr(resp.incomplete_details, "reason", "incomplete")
                 if reason == "max_output_tokens":
