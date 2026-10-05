@@ -277,7 +277,7 @@ export type HubView = {
     overdue_days: number;
     shared: boolean;
     checklist: { key: string; kind: string; description: string; subpoints: string[]; status: "received" | "outstanding"; missing: string[] }[];
-    submitted: { filename: string; kind: string; at: string; status: string }[];
+    submitted: { id: number; filename: string; kind: string; at: string; status: string }[];
   }[];
 };
 

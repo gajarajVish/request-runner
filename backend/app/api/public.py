@@ -100,7 +100,7 @@ def hub_view(token: str, request: Request, s: Session = Depends(db, scope="funct
                     for i in (v.items if v else [])
                 ],
                 # only this provider's own submissions; a co-owner's files are never shown
-                "submitted": [{"filename": f.filename, "kind": f.kind, "at": serialize.iso(f.created_at), "status": f.extraction_status} for f in mine if f.parent_file_id is None],
+                "submitted": [{"id": f.id, "filename": f.filename, "kind": f.kind, "at": serialize.iso(f.created_at), "status": f.extraction_status} for f in mine if f.parent_file_id is None],
             }
         )
     audit.log(s, actor="provider", actor_detail=provider.email, action="upload_page_viewed", workspace_id=provider.workspace_id)
@@ -167,6 +167,30 @@ def hub_answer(token: str, body: AnswerIn, request: Request, s: Session = Depend
     if r.state != states.CHECKING:
         states.transition(s, r, states.CHECKING, actor="provider", reason="answer received", actor_detail=provider.email)
     enqueue_check(s, r, trigger=f"answer {ef.id}", substantive=True)
+    return {"ok": True}
+
+
+@router.delete("/api/hub/{token}/files/{file_id}")
+def hub_remove_file(token: str, file_id: int, request_id: int, request: Request, s: Session = Depends(db, scope="function")):
+    """The provider takes back something they sent. The file is kept for the audit trail but no
+    longer counts as evidence for the request, which is checked again without it."""
+    tok, provider, reqs = _hub(token, request, s, limit=30, window=600)
+    (r,) = _eligible(reqs, request_id)
+    f = s.get(EvidenceFile, file_id)
+    if f is None or f.provider_id != provider.id or f.parent_file_id is not None:
+        raise HTTPException(404, "file not found")
+    ids = [f.id] + list(s.scalars(select(EvidenceFile.id).where(EvidenceFile.parent_file_id == f.id)).all())
+    rows = s.scalars(select(EvidenceAssignment).where(EvidenceAssignment.request_id == r.id, EvidenceAssignment.file_id.in_(ids))).all()
+    if not rows:
+        raise HTTPException(404, "file not found")
+    for a in rows:
+        s.delete(a)
+    label = "a typed answer" if f.kind == "text" else f.filename
+    audit.log(s, actor="provider", actor_detail=provider.email, action="provider_removed_file", workspace_id=r.workspace_id, request_id=r.id, file=f.id)
+    add_comment(s, r, author="provider", kind="provider_upload", body=f"{provider.email} removed {label}", payload={"removed_file_ids": ids, "from": provider.email})
+    if r.state != states.CHECKING:
+        states.transition(s, r, states.CHECKING, actor="provider", reason="file removed", actor_detail=provider.email)
+    enqueue_check(s, r, trigger=f"removed {f.id}", substantive=True)
     return {"ok": True}
 
 

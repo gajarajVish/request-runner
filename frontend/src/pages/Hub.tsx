@@ -18,6 +18,8 @@ export function HubPage() {
     refetchInterval: () => (Date.now() < busyUntil ? 3000 : false),
   });
   const kick = () => setBusyUntil(Date.now() + 60_000);
+  // after "that's everything", the link closes; thank them instead of calling it inactive
+  const [finishedFor, setFinishedFor] = useState<string | null>(null);
 
   if (q.isLoading)
     return (
@@ -31,12 +33,14 @@ export function HubPage() {
     return (
       <Frame>
         <div className="mx-auto max-w-md px-4 py-20 text-center">
-          <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-slate-200 text-slate-600">
-            <Icon name="shield" size={18} />
+          <span className={cx("mx-auto grid h-10 w-10 place-items-center rounded-full", finishedFor ? "bg-brand-50 text-brand-700" : "bg-slate-200 text-slate-600")}>
+            <Icon name={finishedFor ? "check" : "shield"} size={18} />
           </span>
-          <h1 className="mt-4 text-[17px] font-semibold text-slate-900">This link is no longer active</h1>
+          <h1 className="mt-4 text-[17px] font-semibold text-slate-900">{finishedFor ? "Thanks, you're all done" : "This request is closed"}</h1>
           <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
-            It may have expired, or every item on it is already complete. To send something else, reply to the email you received.
+            {finishedFor
+              ? `We've let ${finishedFor} know you've sent everything. You can close this page.`
+              : "It's complete or the link has expired. To send something else, reply to the email you received."}
           </p>
         </div>
       </Frame>
@@ -97,9 +101,16 @@ export function HubPage() {
 
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-6">
         {d.items.map((it) => (
-          <HubItem key={it.request_id} token={token} it={it} onSubmitted={kick} />
+          <HubItem key={it.request_id} token={token} it={it} onSubmitted={kick} onClosed={() => setFinishedFor(it.requester)} />
         ))}
-        <CloseAll token={token} requester={requesters} onDone={kick} />
+        <CloseAll
+          token={token}
+          requester={requesters}
+          onDone={() => {
+            setFinishedFor(requesters);
+            kick();
+          }}
+        />
       </main>
     </Frame>
   );
@@ -111,8 +122,8 @@ function Frame({ children, appName = "RequestRunner", requester }: { children: R
       <header className="bg-ink-900">
         <div className="mx-auto flex h-12 max-w-3xl items-center gap-3 px-4">
           <span className="flex items-center gap-2.5 text-[14px] font-semibold tracking-tight text-white">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-600 ring-1 ring-white/15">
-              <Icon name="shield" size={15} className="text-white" />
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-600 text-[15px] font-bold leading-none text-white ring-1 ring-white/15" aria-hidden>
+              R
             </span>
             {appName}
           </span>
@@ -143,7 +154,7 @@ function splitLabel(it: HubItemT) {
   return { ref, title: ref ? it.title : it.label };
 }
 
-function HubItem({ token, it, onSubmitted }: { token: string; it: HubItemT; onSubmitted: () => void }) {
+function HubItem({ token, it, onSubmitted, onClosed }: { token: string; it: HubItemT; onSubmitted: () => void; onClosed: () => void }) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [answer, setAnswer] = useState("");
@@ -189,6 +200,14 @@ function HubItem({ token, it, onSubmitted }: { token: string; it: HubItemT; onSu
     mutationFn: () => api.post(`/api/hub/${token}/close`, { request_id: it.request_id }),
     onSuccess: () => {
       setMsg({ tone: "ok", text: `Thanks. We've told ${it.requester} you have nothing more to send for this request.` });
+      onClosed();
+      refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (f: HubItemT["submitted"][number]) => api.send(`DELETE`, `/api/hub/${token}/files/${f.id}?request_id=${it.request_id}`),
+    onSuccess: (_, f) => {
+      setMsg({ tone: "ok", text: `Removed ${f.kind === "text" ? "your typed answer" : f.filename}. ${it.requester} won't see it as part of this request.` });
       refresh();
     },
   });
@@ -359,14 +378,14 @@ function HubItem({ token, it, onSubmitted }: { token: string; it: HubItemT; onSu
             {msg.text}
           </p>
         )}
-        <ErrorText error={upload.error || sendAnswer.error || close.error} />
+        <ErrorText error={upload.error || sendAnswer.error || close.error || remove.error} />
 
         {it.submitted.length > 0 && (
           <div>
             <p className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.08em] text-slate-500">You've sent</p>
             <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
-              {sent.map((f, i) => (
-                <li key={i} className="flex items-center gap-2.5 px-3 py-2 text-xs">
+              {sent.map((f) => (
+                <li key={f.id} className="flex items-center gap-2.5 px-3 py-2 text-xs">
                   <Icon name={f.kind === "text" ? "mail" : "file"} size={14} className="text-slate-400" />
                   <span className="min-w-0 flex-1 truncate text-slate-800">{f.kind === "text" ? "Typed answer" : f.filename}</span>
                   {f.status === "unreadable" && (
@@ -375,6 +394,14 @@ function HubItem({ token, it, onSubmitted }: { token: string; it: HubItemT; onSu
                     </Badge>
                   )}
                   <span className="shrink-0 tabular-nums text-slate-500">{fmtTime(f.at)}</span>
+                  <button
+                    onClick={() => confirm(`Remove ${f.kind === "text" ? "this typed answer" : f.filename}?`) && remove.mutate(f)}
+                    disabled={remove.isPending}
+                    className="shrink-0 rounded px-1.5 py-0.5 font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    aria-label={`Remove ${f.kind === "text" ? "typed answer" : f.filename}`}
+                  >
+                    Remove
+                  </button>
                 </li>
               ))}
             </ul>

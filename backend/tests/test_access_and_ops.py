@@ -75,6 +75,30 @@ def test_hub_upload_assigns_and_checks(env):
     assert c.post(f"/api/hub/{tok}/answer", json={"request_id": 99999, "text": "hi"}).status_code == 400
 
 
+def test_hub_provider_removes_a_file_and_it_is_rechecked_without_it(env):
+    rid = confirmed_request(env)
+    tok = jordan_token()
+    env.llm.on("check", lambda c: check_out([verdict("i1", "met", [cite(evid(c, "cert"), "Policy period 03/01/2026 to 03/01/2027", page=1)]), verdict("i2", "not_met")]))
+    c = client()
+    c.post(f"/api/hub/{tok}/upload", files={"file": ("cert.pdf", CERT, "application/pdf")}, data={"request_id": str(rid)})
+    run_jobs()
+    sent = c.get(f"/api/hub/{tok}").json()["items"][0]["submitted"]
+    assert [f["filename"] for f in sent] == ["cert.pdf"]
+    fid = sent[0]["id"]
+    # someone else's file id, or a file on another request, can't be removed
+    assert c.delete(f"/api/hub/{tok}/files/{fid + 999}", params={"request_id": rid}).status_code == 404
+    assert c.delete(f"/api/hub/{tok}/files/{fid}", params={"request_id": 99999}).status_code == 400
+    assert c.delete(f"/api/hub/{tok}/files/{fid}", params={"request_id": rid}).status_code == 200
+    run_jobs()
+    with session_scope() as s:
+        assert s.scalars(select(EvidenceAssignment).where(EvidenceAssignment.request_id == rid)).all() == []
+        assert s.get(EvidenceFile, fid) is not None  # kept for the audit trail
+    view = c.get(f"/api/hub/{tok}").json()["items"][0]
+    assert view["submitted"] == []
+    assert view["checklist"][0]["status"] == "outstanding"
+    assert c.delete(f"/api/hub/{tok}/files/{fid}", params={"request_id": rid}).status_code == 404
+
+
 def test_hub_token_expires_per_item_deadline(env):
     confirmed_request(env, due="2026-10-17")
     tok = jordan_token()  # issued 2026-10-01; deadline = max(issue+14d, due+7d) -> end of Oct 24
