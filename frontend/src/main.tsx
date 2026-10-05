@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./index.css";
-import { Shell } from "./components/Shell";
+import { NotFound, Shell } from "./components/Shell";
 import { RequestsPage } from "./pages/Requests";
 import { RequestPage } from "./pages/Request";
 import { ImportsPage } from "./pages/Imports";
@@ -41,6 +41,7 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/activity" element={<ActivityPage />} />
+              <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
         </BrowserRouter>

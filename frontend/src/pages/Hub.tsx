@@ -13,9 +13,10 @@ export function HubPage() {
   const q = useQuery({
     queryKey: ["hub", token],
     queryFn: () => api.get<HubView>(`/api/hub/${token}`),
-    retry: false,
+    // 404 means the link is closed; anything else (a restart, a rate limit) is worth retrying
+    retry: (n, e: any) => e?.status !== 404 && n < 2,
     // after a submission, poll briefly so the checklist updates once it's been checked
-    refetchInterval: () => (Date.now() < busyUntil ? 3000 : false),
+    refetchInterval: (query) => ((query.state.error as any)?.status === 404 ? false : Date.now() < busyUntil || query.state.status === "error" ? 3000 : false),
   });
   const kick = () => setBusyUntil(Date.now() + 60_000);
   // after "that's everything", the link closes; thank them instead of calling it inactive
@@ -29,7 +30,20 @@ export function HubPage() {
         </div>
       </Frame>
     );
-  if (q.error || !q.data)
+  const closed = (q.error as any)?.status === 404;
+  if (!closed && !q.data)
+    return (
+      <Frame>
+        <div role="alert" className="mx-auto max-w-md px-4 py-20 text-center">
+          <h1 className="text-[17px] font-semibold text-slate-900">We couldn't load this page</h1>
+          <p className="mt-2 text-[13px] leading-relaxed text-slate-600">The connection dropped or the server is restarting. This page will retry on its own.</p>
+          <Button className="mt-4" onClick={() => q.refetch()} busy={q.isFetching}>
+            Try now
+          </Button>
+        </div>
+      </Frame>
+    );
+  if (closed || !q.data)
     return (
       <Frame>
         <div className="mx-auto max-w-md px-4 py-20 text-center">

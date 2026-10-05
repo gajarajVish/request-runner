@@ -5,6 +5,7 @@ import { api, fmtDate, fmtTime, type ImportBatch, type ImportRowView } from "../
 import { ChecklistEditor, ChecklistView, toDraft, type DraftItem } from "../components/Checklist";
 import { DraftEditor, OutboundView, mailStatusLabel, mailStatusTone } from "../components/Mail";
 import { Avatar, Badge, Button, Card, Empty, ErrorText, Field, FlagList, Icon, Modal, PageHeader, RefId, Segmented, Spinner, Stat, cx, flagLabel, inputCls, th, type Tone } from "../components/ui";
+import { Loading } from "../components/Shell";
 
 const ACTION: Record<string, { tone: Tone; label: string }> = {
   new: { tone: "blue", label: "New" },
@@ -49,7 +50,7 @@ export function BatchPage() {
     });
   }, [b, filter]);
 
-  if (q.isLoading) return null;
+  if (q.isLoading) return <Loading />;
   if (!b) return <ErrorText error={q.error} />;
   const errors = b.rows.filter((r) => r.include && r.action === "error");
   const drafts = b.drafts.filter((m) => m.status === "draft");

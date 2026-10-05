@@ -5,6 +5,7 @@ import { api, bytes, fmtDate, fmtTime, type Comment, type EvidenceFile, type Ite
 import { ChecklistEditor, ChecklistView, emptyCriteria, toDraft, type DraftItem } from "../components/Checklist";
 import { DraftEditor, InboundView, OutboundView } from "../components/Mail";
 import { Badge, Button, Card, Disclosure, Empty, ErrorText, Field, FlagList, Icon, type IconName, Menu, Modal, RefId, Segmented, Spinner, StateBadge, VerdictBadge, cx, inputCls } from "../components/ui";
+import { Loading } from "../components/Shell";
 
 const OPEN_WITH_PROVIDER = new Set(["waiting_provider", "checking", "needs_more", "handed_back"]);
 const TERMINAL = new Set(["complete", "closed_by_provider", "accepted", "cancelled"]);
@@ -14,7 +15,7 @@ export function RequestPage() {
   const q = useQuery({ queryKey: ["request", id], queryFn: () => api.get<RequestDetail>(`/api/requests/${id}`) });
   const [override, setOverride] = useState<Item | null>(null);
 
-  if (q.isLoading) return null;
+  if (q.isLoading) return <Loading />;
   if (q.error || !q.data) return <ErrorText error={q.error ?? "not found"} />;
   const r = q.data;
   const version = r.current_version ?? r.proposed_version;

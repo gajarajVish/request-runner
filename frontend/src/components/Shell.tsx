@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, fmtTime, useLiveUpdates, type Me } from "../api";
 import { Avatar, Button, Card, ErrorText, Field, Icon, type IconName, Spinner, cx, inputCls } from "./ui";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export function useMe() {
-  return useQuery({ queryKey: ["me"], queryFn: () => api.get<Me>("/api/me"), staleTime: 30_000 });
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: () => api.get<Me>("/api/me"),
+    staleTime: 30_000,
+    // a deploy or restart briefly takes the server away: keep trying so the page comes back on its own
+    refetchInterval: (q) => (q.state.status === "error" ? 3000 : false),
+  });
 }
 
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
@@ -37,14 +44,10 @@ export function Shell() {
     setMenu(false);
   }, [loc.pathname]);
   useLiveUpdates(!!me.data?.user);
-  if (me.isLoading) {
-    return (
-      <div className="grid h-full place-items-center text-slate-500">
-        <Spinner />
-      </div>
-    );
-  }
-  if (!me.data?.user) return <Login me={me.data} />;
+  if (me.isLoading) return <Loading />;
+  // only a successful "nobody is signed in" means sign in; a failed request means the server is unreachable
+  if (!me.data) return <Unreachable retry={() => me.refetch()} busy={me.isFetching} />;
+  if (!me.data.user) return <Login me={me.data} />;
   const link = (n: { to: string; label: string; icon: IconName; end?: boolean }, small?: boolean) => (
     <NavLink
       key={n.to}
@@ -96,8 +99,47 @@ export function Shell() {
         </div>
       )}
       <main className="mx-auto max-w-[1360px] px-4 py-6 sm:px-6 lg:px-8">
-        <Outlet />
+        {/* keyed by path so a crashed page recovers by navigating away, without losing the sidebar */}
+        <ErrorBoundary key={loc.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
+    </div>
+  );
+}
+
+export function Loading() {
+  return (
+    <div className="grid min-h-full place-items-center py-24 text-[13px] text-slate-500">
+      <span className="flex items-center gap-2">
+        <Spinner /> Loading…
+      </span>
+    </div>
+  );
+}
+
+function Unreachable({ retry, busy }: { retry: () => void; busy: boolean }) {
+  return (
+    <div className="grid min-h-full place-items-center bg-canvas px-4">
+      <div role="alert" className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 text-center shadow-xs">
+        <h1 className="text-[16px] font-semibold text-slate-900">Can't reach the server</h1>
+        <p className="mt-1.5 text-[13px] text-slate-600">It may be restarting. This page will reconnect on its own as soon as it's back.</p>
+        <Button className="mt-4 w-full" onClick={retry} busy={busy}>
+          Try now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function NotFound() {
+  return (
+    <div className="mx-auto max-w-sm py-24 text-center">
+      <h1 className="text-[16px] font-semibold text-slate-900">Page not found</h1>
+      <p className="mt-1.5 text-[13px] text-slate-600">This link doesn't match anything in RequestRunner.</p>
+      <Link to="/" className="mt-4 inline-block text-[13px] font-medium text-brand-700 hover:underline">
+        Go to requests
+      </Link>
     </div>
   );
 }
