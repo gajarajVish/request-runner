@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import date
 
 import bcrypt
@@ -34,6 +35,23 @@ from . import serialize
 from .deps import current_user, db, owned_request
 
 router = APIRouter(prefix="/api")
+log = logging.getLogger("rr.client")
+
+
+class ClientErrorIn(BaseModel):
+    message: str = ""
+    stack: str = ""
+    component_stack: str = ""
+    url: str = ""
+
+
+@router.post("/client-error", status_code=204)
+def client_error(body: ClientErrorIn, request: Request) -> None:
+    """A page crashed in someone's browser; log it so it can be fixed (no auth: the crash may be the login page)."""
+    log.error(
+        "client error at %s (%s): %s\n%s\n%s",
+        body.url[:300], request.headers.get("user-agent", "")[:200], body.message[:1000], body.stack[:4000], body.component_stack[:4000],
+    )
 
 
 # --------------------------------------------------------------------------- auth
