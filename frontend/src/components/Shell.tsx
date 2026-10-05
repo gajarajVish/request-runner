@@ -33,7 +33,9 @@ export function Shell() {
   const me = useMe();
   const [menu, setMenu] = useState(false);
   const loc = useLocation();
-  useEffect(() => setMenu(false), [loc.pathname]);
+  useEffect(() => {
+    setMenu(false);
+  }, [loc.pathname]);
   useLiveUpdates(!!me.data?.user);
   if (me.isLoading) {
     return (

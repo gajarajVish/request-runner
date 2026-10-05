@@ -315,7 +315,9 @@ function Thread({ r }: { r: RequestDetail }) {
     },
   });
   const latestProposalId = useMemo(() => [...r.comments].reverse().find((c) => c.kind === "scope_proposal")?.id, [r.comments]);
-  useEffect(() => end.current?.scrollIntoView({ block: "nearest" }), [r.comments.length]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "nearest" });
+  }, [r.comments.length]);
   const placeholder = !sent
     ? TERMINAL.has(r.state)
       ? "Add a note"
