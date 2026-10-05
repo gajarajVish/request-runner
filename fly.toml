@@ -8,7 +8,7 @@ primary_region = "iad"
   APP_ENV = "production"
   DATA_DIR = "/data"
   EMAIL_PROVIDER = "gmail"   # or "postmark" with a custom domain (see README)
-  LLM_PROVIDER = "anthropic"
+  LLM_PROVIDER = "openai"
   WORKSPACE_TIMEZONE = "America/New_York"
 
 [mounts]
@@ -31,6 +31,6 @@ primary_region = "iad"
     timeout = "5s"
 
 [[vm]]
-  memory = "1gb"
+  memory = "512mb"   # app uses ~100MB; 1gb was unneeded cost
   cpu_kind = "shared"
   cpus = 1

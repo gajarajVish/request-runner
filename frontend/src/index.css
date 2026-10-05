@@ -11,24 +11,26 @@
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
 
-  --color-brand-50: #eff4ff;
-  --color-brand-100: #dbe5ff;
-  --color-brand-200: #bfd0fe;
-  --color-brand-500: #3563e9;
-  --color-brand-600: #2350d4;
-  --color-brand-700: #1c40ac;
-  --color-brand-800: #1a3687;
-  --color-brand-900: #172f6b;
+  /* Palette after getcomplify.com: deep greens on white / off-white. brand-600+ carry white
+     text at >= 4.5:1; brand-500 is for borders and focus rings only. */
+  --color-brand-50: #eef6f1;
+  --color-brand-100: #d8ebe0;
+  --color-brand-200: #b3d7c3;
+  --color-brand-500: #348f63;
+  --color-brand-600: #2a7350;
+  --color-brand-700: #26563f;
+  --color-brand-800: #1e3a2f;
+  --color-brand-900: #18302a;
 
-  --color-ink-950: #0a1020;
-  --color-ink-900: #0f172a;
-  --color-ink-800: #1a2438;
-  --color-ink-700: #27334d;
-  --color-ink-500: #7f8ba4;
-  --color-ink-300: #a7b1c6;
-  --color-ink-200: #cdd4e1;
+  --color-ink-950: #142a21;
+  --color-ink-900: #1e3a2f;
+  --color-ink-800: #24453a;
+  --color-ink-700: #2e5546;
+  --color-ink-500: #9fb8ab;
+  --color-ink-300: #c6d6cd;
+  --color-ink-200: #dfe9e3;
 
-  --color-canvas: #f4f6f9;
+  --color-canvas: #f7f6f3;
   /* WCAG AA: slate-500 darkened so secondary text passes 4.5:1 on white and on canvas;
      `field` is the input border, 3:1 against white (1.4.11) */
   --color-slate-500: #5a6a80;

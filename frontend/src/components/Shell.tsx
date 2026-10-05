@@ -18,11 +18,11 @@ const NAV_MORE: { to: string; label: string; icon: IconName }[] = [
   { to: "/activity", label: "Audit log", icon: "activity" },
 ];
 
-function Logo({ name }: { name: string }) {
+function Logo({ name, dark }: { name: string; dark?: boolean }) {
   return (
-    <NavLink to="/" className="flex items-center gap-2.5 text-[14px] font-semibold tracking-tight text-white">
-      <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-600 ring-1 ring-white/15">
-        <Icon name="shield" size={15} className="text-white" />
+    <NavLink to="/" className={cx("flex items-center gap-2.5 text-[14px] font-semibold tracking-tight", dark ? "text-slate-900" : "text-white")}>
+      <span className={cx("grid h-7 w-7 place-items-center rounded-md text-[15px] font-bold leading-none text-white", dark ? "bg-brand-700" : "bg-brand-600 ring-1 ring-white/15")} aria-hidden>
+        R
       </span>
       {name}
     </NavLink>
@@ -109,38 +109,11 @@ function Login({ me }: { me?: Me }) {
   const sw = useMutation({ mutationFn: (id: number) => api.post(`/api/dev/switch-user/${id}`), onSuccess: () => qc.invalidateQueries() });
   const name = me?.app_name ?? "RequestRunner";
   return (
-    <div className="grid min-h-full lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-ink-900 p-10 text-white lg:flex">
-        <Logo name={name} />
-        <div className="max-w-md">
-          <h1 className="text-[28px] font-semibold leading-tight tracking-tight">Evidence collection for audit, close and compliance.</h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-ink-300">
-            Request documents by email, check every file against a confirmed checklist with cited evidence, and follow up until each item is met.
-          </p>
-          <ul className="mt-8 space-y-3 text-[13px] text-ink-200">
-            {["Every verdict cites the page, cell or quote it rests on", "Nothing is sent until you approve it", "Full audit trail of every action"].map((s) => (
-              <li key={s} className="flex items-center gap-2.5">
-                <span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500/15 text-emerald-400">
-                  <Icon name="check" size={12} />
-                </span>
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <p className="text-xs text-ink-500">Workspace access is managed by your administrator.</p>
-      </div>
-      <div className="grid place-items-center px-4 py-12">
-        <div className="w-full max-w-sm space-y-6">
-          <div>
-            <div className="mb-6 lg:hidden">
-              <span className="inline-flex rounded-md bg-ink-900 px-3 py-2">
-                <Logo name={name} />
-              </span>
-            </div>
-            <h2 className="text-[20px] font-semibold tracking-tight text-slate-900">Sign in</h2>
-            <p className="mt-1 text-[13px] text-slate-600">Use your work email and password.</p>
-          </div>
+    <div className="grid min-h-full place-items-center bg-canvas px-4 py-12">
+      <div className="w-full max-w-sm space-y-6">
+        <Logo name={name} dark />
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+          <h1 className="mb-5 text-[18px] font-semibold tracking-tight text-slate-900">Sign in</h1>
           <form
             className="space-y-4"
             onSubmit={(e) => {
@@ -148,7 +121,7 @@ function Login({ me }: { me?: Me }) {
               login.mutate();
             }}
           >
-            <Field label="Work email">
+            <Field label="Email">
               <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
             </Field>
             <Field label="Password">
@@ -159,22 +132,22 @@ function Login({ me }: { me?: Me }) {
             </Button>
             <ErrorText error={login.error} />
           </form>
-          {me?.dev && users.data && (
-            <Card title={<span className="text-amber-800">Development only: sign in as</span>} className="border-amber-300 bg-amber-50/40">
-              <div className="flex flex-col gap-1.5">
-                {users.data.map((u) => (
-                  <button key={u.id} onClick={() => sw.mutate(u.id)} className="flex items-center gap-2.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-left hover:border-slate-300">
-                    <Avatar name={u.name} />
-                    <span className="min-w-0">
-                      <span className="block text-[13px] font-medium text-slate-900">{u.name}</span>
-                      <span className="block truncate text-xs text-slate-500">{u.email}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </Card>
-          )}
         </div>
+        {me?.dev && users.data && (
+          <Card title={<span className="text-amber-800">Development only: sign in as</span>} className="border-amber-300 bg-amber-50/40">
+            <div className="flex flex-col gap-1.5">
+              {users.data.map((u) => (
+                <button key={u.id} onClick={() => sw.mutate(u.id)} className="flex items-center gap-2.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-left hover:border-slate-300">
+                  <Avatar name={u.name} />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-medium text-slate-900">{u.name}</span>
+                    <span className="block truncate text-xs text-slate-500">{u.email}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );
