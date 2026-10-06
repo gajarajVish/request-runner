@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     session_secret: str = "dev-only-session-secret-change-me"  # see DEFAULT_SESSION_SECRET
 
     seed_users: str = ""  # "Name|email|password;Name|email|password"
+    # Self sign-up: on unless SIGNUP_ENABLED=false. With SIGNUP_CODE set, people need that code to
+    # create an account (every account can send email and spend model tokens).
+    signup_enabled: bool = True
+    signup_code: str = ""
     data_dir: Path = REPO_DIR / "var"
     database_url: str = ""  # defaults to sqlite in data_dir
 

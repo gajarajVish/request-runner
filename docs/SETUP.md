@@ -1,5 +1,21 @@
 # Setting up and using RequestRunner
 
+## Use the hosted app (no setup)
+
+The app is running at **https://request-runner.fly.dev**, on the real model and real email.
+
+1. Click **Create an account** on the sign-in page. Use an email you can read: handbacks and
+   overdue notices are sent there. You'll need the invite code you were given.
+2. Your account gets its own private workspace. Nobody else sees your requests.
+3. Start a request (**Requests → New request**). To play the provider yourself, name an
+   address you can read as the provider. Replies with attachments are picked up within a
+   minute, and the upload link in the email works from any device.
+
+Mail goes out from the app's Gmail as "<your name> via RequestRunner". The demo clock isn't
+available on the hosted app, because it runs on real time.
+
+## Run it locally
+
 Everything you need to get from a fresh clone to a working app, then try both halves of the
 product: a single request, and a request list. Allow about 10 minutes.
 
@@ -116,7 +132,7 @@ gets at most 3 automatic contacts, then it is handed back to the requester.
 ## 7. Run the tests
 
 ```bash
-cd backend && uv run pytest -q             # 73 tests, model and email stubbed, no network
+cd backend && uv run pytest -q             # 75 tests, model and email stubbed, no network
 cd frontend && npm run typecheck
 cd frontend && npm run test:e2e            # Playwright; starts its own server on other ports
 ```

@@ -146,36 +146,79 @@ export function NotFound() {
 
 function Login({ me }: { me?: Me }) {
   const qc = useQueryClient();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [company, setCompany] = useState("");
+  const [code, setCode] = useState("");
   const login = useMutation({ mutationFn: () => api.post("/api/login", { email, password }), onSuccess: () => qc.invalidateQueries() });
+  const signup = useMutation({
+    mutationFn: () => api.post("/api/signup", { name: fullName, email, password, company, code }),
+    onSuccess: () => qc.invalidateQueries(),
+  });
   const users = useQuery({ queryKey: ["dev-users"], queryFn: () => api.get<{ id: number; name: string; email: string }[]>("/api/dev/users"), enabled: !!me?.dev });
   const sw = useMutation({ mutationFn: (id: number) => api.post(`/api/dev/switch-user/${id}`), onSuccess: () => qc.invalidateQueries() });
   const name = me?.app_name ?? "RequestRunner";
+  const signingUp = mode === "signup";
+  const active = signingUp ? signup : login;
   return (
     <div className="grid min-h-full place-items-center bg-canvas px-4 py-12">
       <div className="w-full max-w-sm space-y-6">
         <Logo name={name} dark />
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-          <h1 className="mb-5 text-[18px] font-semibold tracking-tight text-slate-900">Sign in</h1>
+          <h1 className="mb-5 text-[18px] font-semibold tracking-tight text-slate-900">{signingUp ? "Create an account" : "Sign in"}</h1>
           <form
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              login.mutate();
+              active.mutate();
             }}
           >
+            {signingUp && (
+              <Field label="Your name">
+                <input className={inputCls} value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required />
+              </Field>
+            )}
             <Field label="Email">
-              <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
+              <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete={signingUp ? "email" : "username"} required />
             </Field>
             <Field label="Password">
-              <input className={inputCls} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+              <input
+                className={inputCls}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={signingUp ? "new-password" : "current-password"}
+                minLength={signingUp ? 10 : undefined}
+                required
+              />
             </Field>
-            <Button variant="primary" className="h-9 w-full" busy={login.isPending}>
-              Sign in
+            {signingUp && (
+              <>
+                <Field label="Company (optional)">
+                  <input className={inputCls} value={company} onChange={(e) => setCompany(e.target.value)} autoComplete="organization" placeholder="Who you're requesting on behalf of" />
+                </Field>
+                {me?.signup_needs_code && (
+                  <Field label="Invite code">
+                    <input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" required />
+                  </Field>
+                )}
+              </>
+            )}
+            <Button variant="primary" className="h-9 w-full" busy={active.isPending}>
+              {signingUp ? "Create account" : "Sign in"}
             </Button>
-            <ErrorText error={login.error} />
+            <ErrorText error={active.error} />
           </form>
+          {me?.signup && (
+            <p className="mt-4 text-center text-[13px] text-slate-600">
+              {signingUp ? "Already have an account? " : "New here? "}
+              <button type="button" className="font-medium text-brand-700 hover:underline" onClick={() => setMode(signingUp ? "signin" : "signup")}>
+                {signingUp ? "Sign in" : "Create an account"}
+              </button>
+            </p>
+          )}
         </div>
         {me?.dev && users.data && (
           <Card title={<span className="text-amber-800">Development only: sign in as</span>} className="border-amber-300 bg-amber-50/40">

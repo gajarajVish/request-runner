@@ -49,6 +49,8 @@ export type Me = {
   inbound_domain: string;
   email_provider: string;
   llm_provider: string;
+  signup: boolean;
+  signup_needs_code: boolean;
 };
 
 export type Flag = { code: string; message: string; blocking?: boolean; [k: string]: unknown };

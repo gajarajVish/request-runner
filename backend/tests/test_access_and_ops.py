@@ -298,3 +298,42 @@ def test_production_does_not_seed_demo_accounts(env, monkeypatch):
     with session_scope() as s:
         assert s.query(User).count() == before
         assert s.query(User).filter(User.email == "sam@example.com").first().password_hash  # test fixture user, untouched
+
+
+# --------------------------------------------------------------------------- sign-up
+
+
+def test_signup_creates_a_private_workspace_and_signs_in(env):
+    rid = confirmed_request(env)
+    c = client()
+    r = c.post("/api/signup", json={"name": "Riley Park", "email": "Riley@Reviewer.example", "password": "long-enough-pw", "company": "Northwind"})
+    assert r.status_code == 200, r.text
+    assert c.get("/api/me").json()["user"]["email"] == "riley@reviewer.example"
+    assert c.get("/api/requests").json() == []
+    assert c.get(f"/api/requests/{rid}").status_code == 404
+    with session_scope() as s:
+        riley = s.scalars(select(User).where(User.email == "riley@reviewer.example")).one()
+        assert riley.workspace_id != user(s).workspace_id
+        assert s.get(Workspace, riley.workspace_id).name == "Northwind"
+    # the new account can start a request of its own
+    assert c.post("/api/requests", json={"text": "Get the W-9 from jordan@example.com"}).status_code == 200
+
+    again = client().post("/api/signup", json={"name": "R", "email": "riley@reviewer.example", "password": "long-enough-pw"})
+    assert again.status_code == 409
+    assert client().post("/api/signup", json={"name": "R", "email": "not-an-email", "password": "long-enough-pw"}).status_code == 400
+    assert client().post("/api/signup", json={"name": "R", "email": "r2@x.example", "password": "short"}).status_code == 400
+
+
+def test_signup_code_and_switch(env, monkeypatch):
+    monkeypatch.setenv("SIGNUP_CODE", "open-sesame")
+    get_settings.cache_clear()
+    me = client().get("/api/me").json()
+    assert me["signup"] and me["signup_needs_code"]
+    body = {"name": "Kai", "email": "kai@x.example", "password": "long-enough-pw"}
+    assert client().post("/api/signup", json={**body, "code": "wrong"}).status_code == 403
+    assert client().post("/api/signup", json={**body, "code": "open-sesame"}).status_code == 200
+
+    monkeypatch.setenv("SIGNUP_ENABLED", "false")
+    get_settings.cache_clear()
+    assert client().get("/api/me").json()["signup"] is False
+    assert client().post("/api/signup", json={**body, "email": "kai2@x.example", "code": "open-sesame"}).status_code == 403

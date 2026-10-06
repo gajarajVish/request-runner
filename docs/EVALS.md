@@ -5,7 +5,7 @@ item **met** when it isn't, because the requester stops looking. Everything belo
 around catching that first, then the other judgement calls the model makes.
 
 **Status:** this is the plan. No eval harness exists in the repo yet. What exists is
-`data/starter/manifest.csv` (64 labelled files) and 73 unit tests that pin the code's guard
+`data/starter/manifest.csv` (64 labelled files) and 75 unit tests that pin the code's guard
 rails with the model stubbed.
 
 ---

@@ -7,9 +7,10 @@ All milestones from the decisions plan are built. Setup for a new machine is in
 |---|---|
 | Foundation, Part 1 loop, evidence handling | done (backend/app) |
 | Part 2 imports, provider batches, re-import, dashboard | done (`workflow/imports.py`, `/api/imports`, `/api/dashboard`) |
-| Tests | 73 backend tests passing (2026-10-07): `cd backend && uv run pytest -q`; 18 Playwright e2e tests passing in `frontend/e2e` |
+| Tests | 75 backend tests passing (2026-10-07): `cd backend && uv run pytest -q`; 18 Playwright e2e tests passing in `frontend/e2e` |
 | Frontend | done (`frontend/`); axe-core WCAG 2.1 AA scan clean on all pages |
-| Deployment | `Dockerfile` + `fly.toml`; image builds and enforces production checks |
+| Deployment | live at https://request-runner.fly.dev (Fly, OpenAI, Gmail). Checked end to end on 2026-10-07: sign-up → real scoping → sent via Gmail → provider reply picked up → certificate met → Complete |
+| Sign-up | "Create an account" on the sign-in page; each account gets its own workspace. `SIGNUP_CODE` requires an invite code; `SIGNUP_ENABLED=false` turns it off |
 | Real model + real email | rehearsed end to end on 2026-10-06 with Gmail and OpenAI (see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)) |
 
 ## Fixed 2026-10-07
@@ -29,7 +30,6 @@ All milestones from the decisions plan are built. Setup for a new machine is in
 
 - A custom sending domain (SPF/DKIM/DMARC, inbound MX) and a Postmark account. Gmail works
   without one; see [GUIDE.md](GUIDE.md#email-setup).
-- The actual Fly deploy (needs flyctl and an account).
 - Known gaps: the hub refreshes by polling, not SSE; with "both must respond" nothing is sent
   automatically to the silent owner beyond normal reminders; no eval harness yet
   ([EVALS.md](EVALS.md) is the plan).

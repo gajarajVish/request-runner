@@ -11,6 +11,9 @@ evidence, follows up on what's missing, and hands the finished package back.
 
 ## Quick start
 
+**Hosted:** https://request-runner.fly.dev. Create an account with the invite code and it's ready
+to use with the real model and real email.
+
 Step-by-step setup and a guided first run are in [docs/SETUP.md](docs/SETUP.md).
 
 Requires Python 3.12 + [uv](https://docs.astral.sh/uv/) and Node 20.

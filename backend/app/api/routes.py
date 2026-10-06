@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
+import re
 from datetime import date
 
 import bcrypt
@@ -28,6 +30,7 @@ from ..models import (
     Provider,
     Request as RequestModel,
     User,
+    Workspace,
 )
 from ..storage import get_store
 from ..workflow import actions, inbound, scoping, states
@@ -71,6 +74,49 @@ def login(body: LoginIn, request: Request, s: Session = Depends(db, scope="funct
     return {"id": u.id, "name": u.name, "email": u.email}
 
 
+class SignupIn(BaseModel):
+    name: str
+    email: str
+    password: str
+    company: str = ""
+    code: str = ""
+
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@router.post("/signup")
+def signup(body: SignupIn, request: Request, s: Session = Depends(db, scope="function")):
+    """Create an account in its own workspace, so new users see only their own requests."""
+    from ..bootstrap import hash_password
+    from .public import limiter
+
+    cfg = get_settings()
+    if not cfg.signup_enabled:
+        raise HTTPException(403, "sign-up is turned off; ask for an account")
+    limiter.check(f"signup:{request.client.host if request.client else '?'}", 10, 3600)
+    if cfg.signup_code and not hmac.compare_digest(body.code.strip().encode(), cfg.signup_code.encode()):
+        raise HTTPException(403, "that invite code isn't right")
+    name, email, company = body.name.strip(), body.email.strip().lower(), body.company.strip()
+    if not name or len(name) > 200:
+        raise HTTPException(400, "enter your name")
+    if not EMAIL_RE.match(email) or len(email) > 320:
+        raise HTTPException(400, "enter a valid email address")
+    if len(body.password) < 10:
+        raise HTTPException(400, "use a password of at least 10 characters")
+    if s.scalars(select(User).where(User.email == email)).first() is not None:
+        raise HTTPException(409, "an account with this email already exists; sign in instead")
+    ws = Workspace(name=(company or f"{name}'s team")[:200], timezone=cfg.workspace_timezone)
+    s.add(ws)
+    s.flush()
+    u = User(workspace_id=ws.id, name=name, email=email, password_hash=hash_password(body.password))
+    s.add(u)
+    s.flush()
+    audit.log(s, actor="requester", actor_detail=email, action="signup", workspace_id=ws.id)
+    request.session["user_id"] = u.id
+    return {"id": u.id, "name": u.name, "email": u.email}
+
+
 @router.post("/logout")
 def logout(request: Request):
     request.session.clear()
@@ -90,6 +136,8 @@ def me(request: Request, s: Session = Depends(db, scope="function")):
         "inbound_domain": cfg.email_inbound_domain,
         "email_provider": cfg.email_provider,
         "llm_provider": cfg.llm_provider,
+        "signup": cfg.signup_enabled,
+        "signup_needs_code": bool(cfg.signup_code),
     }
 
 
