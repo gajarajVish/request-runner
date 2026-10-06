@@ -30,3 +30,7 @@ frontend/node_modules/
 frontend/dist/
 *.log
 frontend/tsconfig.tsbuildinfo
+
+# playwright
+frontend/test-results/
+frontend/playwright-report/
