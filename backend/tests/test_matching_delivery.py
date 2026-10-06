@@ -192,3 +192,24 @@ def test_crash_mid_send_becomes_uncertain(env):
     assert env.sender.sent == []
     with session_scope() as s:
         assert s.scalars(select(OutboundMessage).where(OutboundMessage.request_id == rid)).one().status == "uncertain"
+
+
+def test_plus_address_of_the_provider_counts_as_the_provider(env):
+    assert inbound.same_mailbox("jordan+acme@example.com", "Jordan@example.com")
+    assert not inbound.same_mailbox("jordan@example.com", "jordan@other.com")
+    assert not inbound.same_mailbox("jordanx@example.com", "jordan@example.com")
+
+    rid = confirmed_request(env)
+    reply, _ = reply_to_of(rid)
+    env.llm.on("check", lambda c: check_out([verdict("i1", "not_met"), verdict("i2", "not_met")]))
+    iid, _ = inbound.ingest_raw(make_eml(to=reply, frm="Jordan Lee <jordan+work@example.com>", body="On it."))
+    run_jobs()
+    with session_scope() as s:
+        assert s.get(InboundMessage, iid).sender_is_owner
+        assert not any(f["code"] == "unknown_sender" for f in s.get(Request, rid).flags or [])
+
+    iid, _ = inbound.ingest_raw(make_eml(to=reply, frm="Someone <someone@example.com>", body="Forwarded to me."))
+    run_jobs()
+    with session_scope() as s:
+        assert not s.get(InboundMessage, iid).sender_is_owner
+        assert any(f["code"] == "unknown_sender" for f in s.get(Request, rid).flags or [])

@@ -11,6 +11,8 @@ evidence, follows up on what's missing, and hands the finished package back.
 
 ## Quick start
 
+Step-by-step setup and a guided first run are in [docs/SETUP.md](docs/SETUP.md).
+
 Requires Python 3.12 + [uv](https://docs.astral.sh/uv/) and Node 20.
 
 ```bash
@@ -100,9 +102,10 @@ spreadsheet formatting (only cell values are seen).
 
 ## More
 
+- [Setup and first run](docs/SETUP.md): install, seed, and try both parts without real email
 - [Full guide](docs/GUIDE.md): demo script, email setup, deployment, and the long form of
   every section above
 - [Design decisions](docs/DESIGN_DECISIONS.md)
 - [Architecture overview (PDF)](docs/ARCHITECTURE.pdf): diagrams of the system and the request states
-- [Demo script](docs/DEMO_SCRIPT.md) ([PDF](docs/DEMO_SCRIPT.pdf)): the recording walkthrough with real email, rehearsed on the real model
-- [Evaluating the agent](docs/EVALS.md) ([PDF](docs/EVALS.pdf)): how we'd measure that the model's judgements are good
+- [Demo script](docs/DEMO_SCRIPT.md): the recording walkthrough with real email, rehearsed on the real model
+- [Evaluating the agent](docs/EVALS.md): how we'd measure that the model's judgements are good

@@ -1,38 +1,35 @@
-# Build status (2026-10-01)
+# Build status (2026-10-07)
 
-All milestones from the decisions plan are built. The README covers setup, the demo script,
-email setup, deployment, architecture, assumptions and limitations.
+All milestones from the decisions plan are built. Setup for a new machine is in
+[SETUP.md](SETUP.md); the README covers architecture, assumptions and limitations.
 
 | Milestone | State |
 |---|---|
 | Foundation, Part 1 loop, evidence handling | done (backend/app) |
 | Part 2 imports, provider batches, re-import, dashboard | done (`workflow/imports.py`, `/api/imports`, `/api/dashboard`) |
-| Tests (§15 list) | 68 passing (2026-10-06): `cd backend && uv run pytest -q`; Playwright e2e in `frontend/e2e` |
-| Frontend | done (`frontend/`); enterprise restyle 2026-10-02 (tokens in `src/index.css`, primitives in `src/components/ui.tsx`), axe-core WCAG 2.1 AA scan clean on all pages |
+| Tests | 73 backend tests passing (2026-10-07): `cd backend && uv run pytest -q`; 18 Playwright e2e tests passing in `frontend/e2e` |
+| Frontend | done (`frontend/`); axe-core WCAG 2.1 AA scan clean on all pages |
 | Deployment | `Dockerfile` + `fly.toml`; image builds and enforces production checks |
+| Real model + real email | rehearsed end to end on 2026-10-06 with Gmail and OpenAI (see [DEMO_SCRIPT.md](DEMO_SCRIPT.md)) |
+
+## Fixed 2026-10-07
+
+- `.env.example` had comments after empty values (`SEED_USERS=   # ...`), which the `.env`
+  parser reads as the value. A fresh copy seeded an unusable account and wrote data to a
+  directory named after the comment. Comments now sit on their own line, and a blank
+  `DATA_DIR` or `SESSION_SECRET` falls back to the default.
+- The first email's subject no longer repeats the organisation when the title already names it.
+- The change notice no longer prints a doubled bullet.
+- A reply from `x@d` now counts as coming from a provider listed as `x+tag@d` (same mailbox), so
+  one Gmail inbox can play every provider without each reply being flagged as an unknown sender.
+  Checked live: a self-addressed Gmail reply was matched by token and processed.
+- R-13 re-run on the real model with the clock moved forward 7 days: **met**.
 
 ## Not done / needs external input
 
-- Real email: domain, DNS (SPF/DKIM/DMARC, inbound MX) and the Postmark account. Until then use
-  `EMAIL_PROVIDER=file` + `rr inject-eml`.
-- The actual Fly deploy (needs flyctl + account), and an end-to-end run with the real model
-  (`LLM_PROVIDER=anthropic`) through the README demo script.
-- Known gaps (see README "Limitations"): the hub refreshes by polling, not SSE; with "both
-  must respond" nothing is sent automatically to the silent owner beyond normal reminders.
-
-## Paused 2026-10-02: next steps
-
-- Local demo instance uses `LLM_PROVIDER=openai` (key in the git-ignored `.env`), a seeded requester
-  account (set via `SEED_USERS`). Run the demo at the fixtures'
-  date: advance the demo clock 11 days first (fixtures are dated Oct 12, 2026).
-- 2026-10-02 clean rerun: all of Part 1 matched manifest.csv, including the bank-statement
-  "that's all I have" close. Part 2 import review matched the README exactly. R-01 uploads met.
-  The run stopped at Hannah's combined reply / R-17 when the OpenAI account ran out of credits.
-- Fixed from that run: a multi-line quote that skips a line no longer fails verification (it
-  wrongly downgraded R-01's statements); evidence ids (E17) in `missing` are replaced with the
-  file name / "your message" before reaching the provider; a model filling `criteria.format`
-  with "json_object" no longer reaches the request email as "Format: json_object".
-- Still to do once there are credits (or an ANTHROPIC_API_KEY): finish Part 2 (combined reply,
-  R-17 dodge follow-up text, clock-driven reminders/escalation), then a screenshot gallery of the
-  MVP for UI direction. Scoping sometimes makes Part 1 B's three months one item (verdict
-  "partly met") rather than three; consider nudging scoping toward one item per period.
+- A custom sending domain (SPF/DKIM/DMARC, inbound MX) and a Postmark account. Gmail works
+  without one; see [GUIDE.md](GUIDE.md#email-setup).
+- The actual Fly deploy (needs flyctl and an account).
+- Known gaps: the hub refreshes by polling, not SSE; with "both must respond" nothing is sent
+  automatically to the silent owner beyond normal reminders; no eval harness yet
+  ([EVALS.md](EVALS.md) is the plan).

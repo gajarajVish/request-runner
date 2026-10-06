@@ -55,6 +55,16 @@ def ingest_postmark(payload: dict[str, Any], raw_json: bytes) -> tuple[int, bool
     return _persist(em, raw_json, "postmark", hint)
 
 
+def same_mailbox(a: str, b: str) -> bool:
+    """`x+tag@d` is delivered to `x@d`, so whoever reads one reads the other."""
+
+    def base(addr: str) -> str:
+        local, _, domain = addr.strip().lower().partition("@")
+        return f"{local.split('+', 1)[0]}@{domain}"
+
+    return base(a) == base(b)
+
+
 def _dedupe_key(em: InboundEmail, raw: bytes, hint: str | None) -> str:
     if hint:
         return hint
@@ -207,9 +217,11 @@ def process(inbound_id: int, *, forced_conversation_id: int | None = None) -> No
         assert provider is not None
         reqs = [s.get(Request, rid) for rid in _conv_request_ids(s, conv)]
         reqs = [r for r in reqs if r is not None]
-        owner_emails = {o.provider.email for r in reqs for o in r.owners}
-        row.sender_is_owner = em.from_address in owner_emails
-        sender_provider = next((o.provider for r in reqs for o in r.owners if o.provider.email == em.from_address), None)
+        owners = [o.provider for r in reqs for o in r.owners]
+        sender_provider = next((p for p in owners if p.email == em.from_address), None) or next(
+            (p for p in owners if same_mailbox(p.email, em.from_address or "")), None
+        )
+        row.sender_is_owner = sender_provider is not None
         row.provider_id = sender_provider.id if sender_provider else provider.id
         open_reqs = [r for r in reqs if r.state in states.OPEN_WITH_PROVIDER]
         # store everything first (evidence is kept even for closed requests)

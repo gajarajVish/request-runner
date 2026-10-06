@@ -34,3 +34,7 @@ frontend/tsconfig.tsbuildinfo
 # playwright
 frontend/test-results/
 frontend/playwright-report/
+
+# docs: only the architecture diagrams ship as a PDF; the rest are local copies of the .md files
+docs/*.pdf
+!docs/ARCHITECTURE.pdf

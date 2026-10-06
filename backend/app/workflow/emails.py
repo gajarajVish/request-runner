@@ -66,7 +66,7 @@ def from_name(requester: User) -> str:
 
 
 def initial_subject(req: Request, requester: User, org: str | None) -> str:
-    who = f" for {org}" if org else ""
+    who = f" for {org}" if org and org.lower() not in req.title.lower() else ""
     return f"{req.title}{who}: request from {requester.name}"
 
 
@@ -158,7 +158,8 @@ def provider_update(
             parts += [f"  Q: {a['question']}", f"  A: {a['answer']}", ""]
     if changes:
         parts.append(f"{requester.name} has updated what's being requested:")
-        parts += [f"  * {c}" for c in changes]
+        # indented lines continue the request named on the line above, so they don't get their own bullet
+        parts += [f"  {c}" if c.startswith(" ") else f"  * {c}" for c in changes]
         parts += ["Nothing else has changed.", ""]
     if outstanding:
         if received_summary:

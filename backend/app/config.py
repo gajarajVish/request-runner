@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -78,6 +78,14 @@ class Settings(BaseSettings):
     max_import_rows: int = 300
     chat_messages_per_10_min: int = 20  # per user
     run_worker: bool = True
+
+    @field_validator("data_dir", "session_secret", mode="before")
+    @classmethod
+    def _blank_means_default(cls, v, info):
+        """`DATA_DIR=` in .env would otherwise mean the current directory."""
+        if isinstance(v, str) and not v.strip():
+            return cls.model_fields[info.field_name].default
+        return v
 
     @model_validator(mode="after")
     def _gmail_addresses(self) -> "Settings":

@@ -33,7 +33,7 @@ To serve the built UI from the backend (one process, as in production):
 ### Tests
 
 ```bash
-cd backend && uv run pytest -q          # 68 tests; stubbed model and email, no network
+cd backend && uv run pytest -q          # 73 tests; stubbed model and email, no network
 cd frontend && npx tsc -b --noEmit      # typecheck
 cd frontend && npm run test:e2e         # Playwright; starts its own backend (fresh db, fake model, file email)
 ```

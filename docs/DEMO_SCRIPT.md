@@ -176,11 +176,13 @@ Reply to Mei's email with
 **You should see:**
 - **R-14 met.** Each sub-point is cited; "if not reviewed, say so" is marked *not applicable*.
 - **R-12 not met** on all three sub-points (who, removal dates, why over 3 days). The follow-up
-  says "Your message states only that access is always removed promptly in line with policy.
-  Please provide, for each person on the R-11 list…"
-- **R-13:** the rehearsal ran without the clock step and got *partly met*, because the
-  screenshot's "pulled 10/12/2026" was in the future. With the clock moved forward 7 days it
-  should be **met**. This exact case wasn't rehearsed, so check it once before recording.
+  asks, for each person on the R-11 list, for the name, the removal date and an explanation
+  for anything over 3 business days.
+- **R-13 met** (re-run on 2026-10-07 with the clock moved forward 7 days): the xlsx lists the
+  4 admins, and the screenshot shows "Pulled 10/12/2026 … 4 users" as a visual citation.
+
+The follow-up's wording varies between runs. On 2026-10-07 it read "Your message currently
+provides only a generic policy statement and no person-by-person dates or explanations."
 
 ### 4. Overdue and escalation
 
