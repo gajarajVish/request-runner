@@ -72,6 +72,9 @@ The same injector is in the UI under **Inbox → Development: inject a raw .eml*
 
 ## Demo script
 
+For the recording, with real email and the expected result of every step, see
+[`DEMO_SCRIPT.md`](DEMO_SCRIPT.md). The short version below uses the injector.
+
 Start with `LLM_PROVIDER=anthropic` (or `openai`) for real checking. With `fake`, checklists come back empty
 and verdicts stay "not met"; that mode is for UI work and tests.
 

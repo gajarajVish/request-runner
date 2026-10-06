@@ -7,7 +7,7 @@ email setup, deployment, architecture, assumptions and limitations.
 |---|---|
 | Foundation, Part 1 loop, evidence handling | done (backend/app) |
 | Part 2 imports, provider batches, re-import, dashboard | done (`workflow/imports.py`, `/api/imports`, `/api/dashboard`) |
-| Tests (§15 list) | 58 passing: `cd backend && uv run pytest -q` |
+| Tests (§15 list) | 68 passing (2026-10-06): `cd backend && uv run pytest -q`; Playwright e2e in `frontend/e2e` |
 | Frontend | done (`frontend/`); enterprise restyle 2026-10-02 (tokens in `src/index.css`, primitives in `src/components/ui.tsx`), axe-core WCAG 2.1 AA scan clean on all pages |
 | Deployment | `Dockerfile` + `fly.toml`; image builds and enforces production checks |
 
@@ -22,8 +22,8 @@ email setup, deployment, architecture, assumptions and limitations.
 
 ## Paused 2026-10-02: next steps
 
-- Local demo instance uses `LLM_PROVIDER=openai` (key in the git-ignored `.env`), user
-  "Vishva Gajaraj" (vgajaraj@engineering.upenn.edu / requester). Run the demo at the fixtures'
+- Local demo instance uses `LLM_PROVIDER=openai` (key in the git-ignored `.env`), a seeded requester
+  account (set via `SEED_USERS`). Run the demo at the fixtures'
   date: advance the demo clock 11 days first (fixtures are dated Oct 12, 2026).
 - 2026-10-02 clean rerun: all of Part 1 matched manifest.csv, including the bank-statement
   "that's all I have" close. Part 2 import review matched the README exactly. R-01 uploads met.

@@ -1,8 +1,14 @@
-# Design decisions to settle before building
+# Design decisions
 
-19 high-level questions. Each has a short context, the options, and a **recommended**
-default. Reply with the number and either "rec", a letter, or your own call (e.g.
-`1: rec, 4: B, 15: split into two items`).
+The 19 questions settled before building, kept as a record. Each has the context, the
+options and the **recommended** choice. The recommended option was built in every case,
+with two changes found while building:
+
+- **Email (5):** Gmail (SMTP out, read-only IMAP poll in) was added as the demo provider,
+  since it needs no domain or DNS. Postmark and SendGrid remain for a custom domain.
+- **Model (8):** the LLM interface also has an OpenAI implementation (`LLM_PROVIDER=openai`).
+
+The README describes the system as built.
 
 ---
 
